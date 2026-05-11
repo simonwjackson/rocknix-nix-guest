@@ -256,4 +256,78 @@ grep -q 'packages/steam' "$ROOT/README.md" \
 grep -q 'free of default passwords' "$ROOT/README.md" \
   || fail "README must document credential boundary"
 
+
+# ==========================================================================
+# Host<->guest contract assertions (moved from rocknix host repo
+# projects/ROCKNIX/packages/tools/nix-integration/tests/nix-integration-static-checks.sh
+# when the contract docs themselves were centralized here under docs/contracts/).
+# These guarantee the docs continue to publish the textual contracts the host
+# nix-integration build depends on.
+# ==========================================================================
+[ -f "$ROOT/docs/contracts/layer6-activation-contract.md" ] || fail "missing Layer 6 activation contract doc"
+grep -q '/storage/bin' "$ROOT/docs/contracts/layer6-activation-contract.md" || fail "Layer 6 contract missing storage bin surface"
+grep -q '/storage/.config/profile.d' "$ROOT/docs/contracts/layer6-activation-contract.md" || fail "Layer 6 contract missing profile.d surface"
+[ -f "$ROOT/docs/contracts/layer7-app-experiment-contract.md" ] || fail "missing Layer 7 app experiment contract doc"
+grep -q 'standard `nix profile`' "$ROOT/docs/contracts/layer7-app-experiment-contract.md" || fail "Layer 7 contract missing standard nix profile split"
+grep -q '/storage/.local/share/nix-apps/layer7' "$ROOT/docs/contracts/layer7-app-experiment-contract.md" || fail "Layer 7 contract missing safe app state root"
+grep -q '/storage/.cache/nix-apps/layer7' "$ROOT/docs/contracts/layer7-app-experiment-contract.md" || fail "Layer 7 contract missing safe app cache root"
+grep -q 'Nix-backed binary' "$ROOT/docs/contracts/layer7-app-experiment-contract.md" || fail "Layer 7 contract missing Nix-backed binary proof"
+[ -f "$ROOT/docs/contracts/layer9-nspawn-guest-contract.md" ] || fail "missing Layer 9 nspawn guest contract doc"
+grep -q '/storage/machines/rocknix-guest' "$ROOT/docs/contracts/layer9-nspawn-guest-contract.md" || fail "Layer 9 contract missing guest root path"
+grep -q '/dev/dri' "$ROOT/docs/contracts/layer9-nspawn-guest-contract.md" || fail "Layer 9 contract missing GPU passthrough prohibition"
+grep -q 'PipeWire' "$ROOT/docs/contracts/layer9-nspawn-guest-contract.md" || fail "Layer 9 contract missing audio passthrough prohibition"
+grep -q '/dev/input' "$ROOT/docs/contracts/layer9-nspawn-guest-contract.md" || fail "Layer 9 contract missing input passthrough prohibition"
+grep -q 'Fallback does' "$ROOT/docs/contracts/layer9-nspawn-guest-contract.md" || fail "Layer 9 contract missing fallback boundary"
+grep -q 'Guest state can be stopped and removed without touching host Nix state' "$ROOT/docs/contracts/layer9-nspawn-guest-contract.md" || fail "Layer 9 contract missing cleanup boundary"
+[ -f "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" ] || fail "missing Layer 10 guest lifecycle contract doc"
+grep -q '/storage/.config/nix-integration/layer10' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing state dir path"
+grep -q '/storage/machines/rocknix-guest' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing guest root path"
+grep -q -- '--register=no' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing no-machined nspawn flag"
+grep -q 'machinectl' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing no machinectl dependency"
+grep -q 'proof' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing proof rootfs mode"
+grep -q 'bootable' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing bootable rootfs mode"
+grep -q 'must not call `systemctl enable`' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing no-autostart policy"
+grep -q '/dev/dri' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing GPU passthrough prohibition"
+grep -q 'PipeWire' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing audio passthrough prohibition"
+grep -q '/dev/input' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing input passthrough prohibition"
+grep -q 'Layer 10b bootable rootfs artifact boundary' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10 contract missing Layer 10b bootable artifact boundary"
+grep -q 'source/provenance, sha256, imported timestamp' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10b contract missing provenance/checksum metadata rule"
+grep -q 'must not depend on binding host `/nix`' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10b contract missing first-validation host /nix sharing prohibition"
+grep -q 'no guest SSH, password login, default credentials' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10b contract missing guest SSH/default credential prohibition"
+grep -q 'minimal init fixture.*not sufficient hardware evidence' "$ROOT/docs/contracts/layer10-guest-lifecycle-contract.md" || fail "Layer 10b contract must distinguish fixtures from hardware Go"
+[ -f "$ROOT/docs/contracts/layer11-bridge-contract.md" ] || fail "missing Layer 11 bridge contract doc"
+grep -q '/storage/.config/nix-integration/layer11' "$ROOT/docs/contracts/layer11-bridge-contract.md" || fail "Layer 11 contract missing state dir path"
+grep -q '/storage/bin' "$ROOT/docs/contracts/layer11-bridge-contract.md" || fail "Layer 11 contract missing storage bin target surface"
+grep -q 'nixctl guest run' "$ROOT/docs/contracts/layer11-bridge-contract.md" || fail "Layer 11 contract missing Layer 10 guest run dependency"
+grep -q 'one-shot bridges only' "$ROOT/docs/contracts/layer11-bridge-contract.md" || fail "Layer 11 contract missing one-shot scope"
+grep -q 'must not.*guest SSH' "$ROOT/docs/contracts/layer11-bridge-contract.md" || fail "Layer 11 contract missing guest SSH prohibition"
+grep -q 'must not.*systemd service' "$ROOT/docs/contracts/layer11-bridge-contract.md" || fail "Layer 11 contract missing no service/autostart policy"
+grep -q '/dev/input' "$ROOT/docs/contracts/layer11-bridge-contract.md" || fail "Layer 11 contract missing input passthrough prohibition"
+grep -q 'no guest process remains' "$ROOT/docs/contracts/layer11-bridge-contract.md" || fail "Layer 11 contract missing no residual guest process rule"
+grep -q 'Cemu compatibility state' "$ROOT/docs/contracts/layer14-main-space-contract.md" \
+  || fail "layer14 main-space contract must document Cemu compatibility state ownership"
+grep -q 'guest-owned runtime peelback baseline' "$ROOT/docs/solutions/performance-issues/rocknix-layer14-cemu-performance-audit-2026-05-09.md" \
+  || fail "Cemu performance audit must document guest-owned peelback baseline"
+L14_FALLBACK_DOC="$ROOT/docs/contracts/HOW-TO-FALL-BACK.md"
+[ -f "${L14_FALLBACK_DOC}" ] || fail "missing HOW-TO-FALL-BACK.md (U9)"
+grep -q '/flash/rocknix.no-nspawn' "${L14_FALLBACK_DOC}" \
+  || fail "HOW-TO-FALL-BACK.md missing flag-file recovery instructions (U9)"
+grep -q 'rocknix.safe=1' "${L14_FALLBACK_DOC}" \
+  || fail "HOW-TO-FALL-BACK.md missing kernel cmdline recovery instructions (U9)"
+
+# U10: Layer 14 contract doc.
+L14_CONTRACT="$ROOT/docs/contracts/layer14-main-space-contract.md"
+[ -f "${L14_CONTRACT}" ] || fail "missing Layer 14 contract doc (U10)"
+grep -q 'THIN_HOST' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document THIN_HOST build flag (U10)"
+grep -q 'rocknix-guest-v2.service' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document the v2 guest unit (U10)"
+grep -q 'reclaim' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document the reclaim contract (U10)"
+grep -q 'soak' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document the soak gate (U10)"
+grep -q 'SM8550' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document SM8550-only scope (U10)"
+
+
 printf 'static checks passed\n'
