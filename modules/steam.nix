@@ -112,8 +112,7 @@ EOF
 
     # Proton and Steam Runtime helper scripts commonly use /usr/bin/env
     # python3. In nested pressure-vessel containers PATH is intentionally
-    # sparse, so use the FHS-visible absolute interpreter and expose that path
-    # through PRESSURE_VESSEL_FILESYSTEMS_RO below.
+    # sparse, so use the FHS-visible absolute interpreter from the FHS runtime.
     for proton in "$common"/Proton*/proton; do
       [ -f "$proton" ] || continue
       first_line="$(${pkgs.coreutils}/bin/head -n 1 "$proton" 2>/dev/null || true)"
@@ -147,6 +146,18 @@ EOF
     export STEAM_HOME="''${STEAM_HOME:-/storage/.local/share/Steam}"
     export STEAM_GAMES_ROOT="''${STEAM_GAMES_ROOT:-/storage/games-internal/roms/steam}"
     export FEX_ROOTFS="''${FEX_ROOTFS:-/storage/.local/share/fex-emu/RootFS/ArchLinux}"
+
+    # Steam Input creates a virtual controller through uinput when launching
+    # Proton games. The outer guest/FHS has /dev/uinput, but pressure-vessel's
+    # nested device view can omit it unless it is explicitly shared. Without
+    # this, Steam Big Picture can see the controller while games like Balatro
+    # never receive the Steam Input virtual XInput device.
+    pv_rw_paths="/dev/uinput:/dev/input"
+    if [ -n "''${PRESSURE_VESSEL_FILESYSTEMS_RW:-}" ]; then
+      export PRESSURE_VESSEL_FILESYSTEMS_RW="$pv_rw_paths:$PRESSURE_VESSEL_FILESYSTEMS_RW"
+    else
+      export PRESSURE_VESSEL_FILESYSTEMS_RW="$pv_rw_paths"
+    fi
 
     ${steamRuntimePrep}/bin/rocknix-steam-prepare-runtime || true
 

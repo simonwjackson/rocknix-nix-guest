@@ -195,5 +195,11 @@
     # kernels both rules are no-ops because no input matches them.
     input "0:0:ft5x06-top"    map_to_output DSI-2
     input "0:0:ft5x06-bottom" map_to_output DSI-1
+
+    # The panels are physically portrait and displayed with transform 90.
+    # Rotate touch coordinates the same way or taps land offset/rotated from
+    # the rendered surface. Validated live on Thor 2026-05-11.
+    input "0:0:ft5x06-top"    calibration_matrix 0 -1 1 1 0 0
+    input "0:0:ft5x06-bottom" calibration_matrix 0 -1 1 1 0 0
   '';
 }
