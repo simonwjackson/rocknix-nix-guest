@@ -25,7 +25,7 @@ or host Cemu binaries.
 | `remote-cemu-build-fingerprint.sh` | Host-side build/runtime fingerprint report for ROCKNIX host Cemu, current guest Nix Cemu, and an optional candidate Cemu. |
 | `remote-cemu-runtime-ab.sh` | Host-side current-vs-candidate Cemu A/B harness, including a live checkpoint mode for in-game sampling. |
 | `remote-cemu-live-campaign.sh` | Host-side one-session live campaign. Runs typed guest and host-control cases sequentially, waits for in-game checkpoint notes, captures maps/thread/cache/CSV evidence, then cleans up and restores power state. Child run directories are indexed so A/B/A repeats do not overwrite evidence. |
-| `remote-cemu-promote.sh` | Host-side promotion helper. Installs an already-imported `nix-sm8550` Cemu output into `/nix/var/nix/profiles/per-user/root/cemu-promoted` inside the guest as a stable GC-rooted rollback path. |
+| `remote-cemu-promote.sh` | Host-side promotion helper. Installs an already-imported in-repo Cemu output into `/nix/var/nix/profiles/per-user/root/cemu-promoted` inside the guest as a stable GC-rooted rollback path. |
 | `launch-host-cemu-through-guest-display.sh` | Diagnostic host-control launcher. Runs host `/usr/bin/cemu` through the guest-visible display path for same-session parity checks. |
 
 ## BOTW profiles
@@ -71,7 +71,7 @@ explicit temporary host adapter for privileged GPU devfreq writes.
 
 It retains `/nix/var/nix/profiles/per-user/root/cemu-promoted/bin/cemu` as a live rollback fallback for guests that have not switched to the current system package yet.
 
-Promote only an already-imported `cemu` output from [`nix-sm8550`](https://github.com/simonwjackson/nix-sm8550):
+Promote only an already-imported `cemu` output from this flake:
 
 ```sh
 /storage/.guest/remote-cemu-promote.sh \
@@ -82,7 +82,7 @@ The helper installs the package output into a dedicated Nix profile/GC root and 
 
 Build-parity diagnostics may override the binary with `CEMU_BIN` via `start_cemu_guest_candidate.sh`; this keeps settings, saves, XDG paths, and logging identical while changing only the Cemu binary under test. Do not use `CEMU_BIN` to point at host `/usr/bin/cemu` as a product path; host binaries are diagnostic controls only and must not become the Layer 14 runtime contract.
 
-The Cemu package is built as `cemu` in [`nix-sm8550`](https://github.com/simonwjackson/nix-sm8550) and installed into `rocknix-guest-main-space`. Build it on Fuji or another aarch64 builder, import its closure into the Thor guest store when Thor is back online, fingerprint it, live-test it against same-session host control, then promote a rollback profile with `remote-cemu-promote.sh` only when needed.
+The Cemu package is built as `cemu` in this flake and installed into `rocknix-guest-main-space`. Build it on Fuji or another aarch64 builder, import its closure into the Thor guest store when Thor is back online, fingerprint it, live-test it against same-session host control, then promote a rollback profile with `remote-cemu-promote.sh` only when needed.
 
 ## Cemu runtime responsibility map
 
@@ -90,7 +90,7 @@ This is the Layer 14 Cemu peelback baseline. Do not delete launcher behavior unt
 
 | Current responsibility | Current owner | Target owner | Classification | Validation gate |
 |---|---|---|---|---|
-| Cemu source/build/resources | `nix-sm8550/packages/cemu/package.nix` | Cemu package | Required correctness | Build/fingerprint proves generic `gameProfiles` and `resources` exist. |
+| Cemu source/build/resources | `packages/cemu/package.nix` | Cemu package | Required correctness | Build/fingerprint proves generic `gameProfiles` and `resources` exist. |
 | Vulkan loader visibility | `start_cemu_guest.sh` reads package metadata | Cemu package wrapper | Required correctness | Direct package entry logs Vulkan backend and Nix Mesa driver without old launcher setup. |
 | Promoted binary selection | `start_cemu_guest.sh` / `remote-cemu-promote.sh` | Deployment/profile adapter | Temporary ROCKNIX adapter | Direct package entry works, while profile rollback still functions. |
 | HOME/XDG/display/audio defaults | `start_cemu_guest.sh` and Sway unit | Guest session profile | Required session policy | Cemu launched from guest session inherits correct env without Cemu-specific exports. |
@@ -173,7 +173,7 @@ For the final parity gate, use typed cases so host controls and guest candidates
 
 ```sh
 CAMPAIGN_CASES="host:host-control:/storage/.guest/launch-host-cemu-through-guest-display.sh:720p-45
-guest:nix-sm8550:/nix/store/...-cemu-rocknix-package-2.999.0-rocknix-package/bin/cemu
+guest:in-repo-cemu:/nix/store/...-cemu-rocknix-package-2.999.0-rocknix-package/bin/cemu
 host:host-control-repeat:/storage/.guest/launch-host-cemu-through-guest-display.sh:720p-45" \
   /storage/.guest/remote-cemu-live-campaign.sh
 ```

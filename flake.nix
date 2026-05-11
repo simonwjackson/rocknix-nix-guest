@@ -1,17 +1,33 @@
 {
-  description = "Minimal ROCKNIX Layer 10b bootable nspawn guest rootfs";
+  description = "ROCKNIX SM8550 NixOS guest rootfs and emulator packages";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
-    # External package-only monorepo for SM8550 emulator packages.
-    nix-sm8550.url = "github:simonwjackson/nix-sm8550";
+    # ROCKNIX Cemu is built against classic SDL2. nixos-25.11 aliases SDL2
+    # to sdl2-compat, so keep a narrow 24.11 input only for that build input.
+    nixpkgs-sdl2-classic.url = "github:NixOS/nixpkgs/nixos-24.11";
   };
 
-  outputs = { self, nixpkgs, nix-sm8550 }:
+  outputs = { self, nixpkgs, nixpkgs-sdl2-classic }:
     let
       targetSystem = "aarch64-linux";
       hostSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllHostSystems = nixpkgs.lib.genAttrs hostSystems;
+      packageSetFor = system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          pkgsSdl2Classic = nixpkgs-sdl2-classic.legacyPackages.${system};
+          cemu = pkgs.callPackage ./packages/cemu/package.nix {
+            SDL2_classic = pkgsSdl2Classic.SDL2;
+          };
+          steam = pkgs.callPackage ./packages/steam/package.nix { };
+        in {
+          default = cemu;
+          cemu = cemu;
+          steam = steam;
+          # Compatibility alias for existing ROCKNIX Layer 14 scripts/docs.
+          cemu-rocknix-package = cemu;
+        };
       configuration = nixpkgs.lib.nixosSystem {
         system = targetSystem;
         modules = [ ./rocknix-guest.nix ];
@@ -21,15 +37,13 @@
         modules = [
           ./profiles/main-space.nix
           ({ ... }: {
-            # Make the package-only monorepo the Cemu source of truth for the
-            # main-space guest while keeping ROCKNIX launch/storage/perf glue
-            # downstream in this repository.
-            nix.registry.nix-sm8550.flake = nix-sm8550;
+            # Keep the emulator package source of truth in this guest flake so
+            # profile composition, package derivations, and launch adapters are
+            # reviewed and versioned together.
             environment.systemPackages = [
-              nix-sm8550.packages.${targetSystem}.cemu
-            ] ++ nixpkgs.lib.optional
-              (nix-sm8550.packages.${targetSystem} ? steam)
-              nix-sm8550.packages.${targetSystem}.steam;
+              (packageSetFor targetSystem).cemu
+              (packageSetFor targetSystem).steam
+            ];
           })
         ];
       };
@@ -78,9 +92,20 @@
       packages = forAllHostSystems (hostSystem:
         let
           rootfs = mkRootfs hostSystem;
-        in {
+        in (packageSetFor hostSystem) // {
           inherit rootfs;
-          default = rootfs;
         });
+      checks = forAllHostSystems (system:
+        let pkgs = nixpkgs.legacyPackages.${system};
+        in {
+          static = pkgs.runCommand "rocknix-nix-guest-static-checks" {
+            nativeBuildInputs = [ pkgs.shellcheck ];
+          } ''
+            cd ${self}
+            ${pkgs.bash}/bin/bash scripts/static-checks.sh
+            touch $out
+          '';
+        });
+      formatter = forAllHostSystems (system: nixpkgs.legacyPackages.${system}.nixpkgs-fmt);
     };
 }
