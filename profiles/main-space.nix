@@ -21,6 +21,7 @@
     ../modules/audio.nix
     ../modules/network.nix
     ../modules/lid.nix
+    ../modules/steam.nix
   ];
 
   # Layer 14 hostname: distinguish from the Layer 10b minimal "rocknix-guest"
@@ -39,6 +40,27 @@
     Storage=volatile
     RuntimeMaxUse=64M
   '';
+
+  # Stable root session bus for the kiosk session and FHS-wrapped generic
+  # Linux apps such as Steam.  sway's wrapper can create a private dbus socket
+  # under /tmp via dbus-run-session, but that breaks FHS private-tmp wrappers:
+  # /run/user/0/bus becomes a symlink into a different /tmp.  Owning the bus at
+  # /run/user/0/bus keeps it visible through the bind-mounted /run namespace.
+  systemd.services.rocknix-session-dbus = {
+    description = "ROCKNIX Layer 14 root session D-Bus";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "rocknix-sway-kiosk.service" ];
+    serviceConfig = {
+      Type = "simple";
+      User = "root";
+      ExecStartPre = "${pkgs.coreutils}/bin/install -d -m 0700 -o 0 -g 0 /run/user/0";
+      ExecStart = "${pkgs.dbus}/bin/dbus-daemon --session --address=unix:path=/run/user/0/bus --nofork --nopidfile";
+      Restart = "on-failure";
+      RestartSec = 3;
+      StandardOutput = "journal";
+      StandardError = "journal";
+    };
+  };
 
   # Layer 14 first-light autostart wiring (Thor validation 2026-05-08).
   #
@@ -63,7 +85,8 @@
   systemd.services.rocknix-sway-kiosk = {
     description = "ROCKNIX Layer 14 sway kiosk session";
     wantedBy = [ "multi-user.target" ];
-    after = [ "multi-user.target" "systemd-user-sessions.service" ];
+    after = [ "multi-user.target" "systemd-user-sessions.service" "rocknix-session-dbus.service" ];
+    requires = [ "rocknix-session-dbus.service" ];
 
     # sway's wrapper invokes dbus-run-session which spawns dbus-daemon.
     # Without dbus on the unit's PATH the wrapper fails with
@@ -101,6 +124,7 @@
       # basics; those belong to the Layer 14 guest session.
       XDG_RUNTIME_DIR = "/run/user/0";
       WAYLAND_DISPLAY = "wayland-1";
+      DBUS_SESSION_BUS_ADDRESS = "unix:path=/run/user/0/bus";
       SDL_AUDIODRIVER = "pulseaudio";
       HOME = "/storage";
       XDG_CONFIG_HOME = "/storage/.config";

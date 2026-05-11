@@ -25,7 +25,11 @@
             # main-space guest while keeping ROCKNIX launch/storage/perf glue
             # downstream in this repository.
             nix.registry.nix-sm8550.flake = nix-sm8550;
-            environment.systemPackages = [ nix-sm8550.packages.${targetSystem}.cemu ];
+            environment.systemPackages = [
+              nix-sm8550.packages.${targetSystem}.cemu
+            ] ++ nixpkgs.lib.optional
+              (nix-sm8550.packages.${targetSystem} ? steam)
+              nix-sm8550.packages.${targetSystem}.steam;
           })
         ];
       };
