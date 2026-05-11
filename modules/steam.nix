@@ -18,6 +18,69 @@ let
     "-norepairfiles"
   ];
 
+  steamUinputPrep = pkgs.writeShellScriptBin "rocknix-steam-ensure-uinput" ''
+    set -eu
+
+    warn() {
+      echo "rocknix-steam-ensure-uinput: warning: $*" >&2
+    }
+
+    if [ -c /dev/uinput ]; then
+      ${pkgs.coreutils}/bin/chmod 0660 /dev/uinput 2>/dev/null || true
+      exit 0
+    fi
+
+    if [ -e /dev/uinput ]; then
+      # A stale regular placeholder makes Steam Input's open(2) succeed but
+      # uinput ioctls fail later as "Couldn't configure axes".  Only replace
+      # plain files/symlinks; leave unusual mounts alone and report them.
+      if [ -f /dev/uinput ] || [ -L /dev/uinput ]; then
+        ${pkgs.coreutils}/bin/rm -f /dev/uinput 2>/dev/null || {
+          warn "could not remove stale non-character /dev/uinput"
+          exit 0
+        }
+      else
+        warn "existing /dev/uinput is not a character device; leaving it untouched"
+        exit 0
+      fi
+    fi
+
+    devno=""
+    if [ -r /sys/devices/virtual/misc/uinput/dev ]; then
+      devno="$(${pkgs.coreutils}/bin/cat /sys/devices/virtual/misc/uinput/dev 2>/dev/null || true)"
+    fi
+    if [ -z "$devno" ] && [ -r /proc/misc ]; then
+      minor="$(${pkgs.gawk}/bin/awk '$2 == "uinput" { print $1; exit }' /proc/misc 2>/dev/null || true)"
+      if [ -n "$minor" ]; then
+        # uinput is a Linux misc device; misc devices use dynamic major 10.
+        devno="10:$minor"
+      fi
+    fi
+
+    case "$devno" in
+      [0-9]*:[0-9]*) ;;
+      *)
+        warn "kernel did not report a uinput device number"
+        exit 0
+        ;;
+    esac
+
+    major="''${devno%:*}"
+    minor="''${devno#*:}"
+    case "$major:$minor" in
+      *[!0-9:]*|:*|*:)
+        warn "invalid uinput device number: $devno"
+        exit 0
+        ;;
+    esac
+
+    ${pkgs.coreutils}/bin/mknod /dev/uinput c "$major" "$minor" 2>/dev/null || {
+      warn "could not create /dev/uinput c $major:$minor"
+      exit 0
+    }
+    ${pkgs.coreutils}/bin/chmod 0660 /dev/uinput 2>/dev/null || true
+  '';
+
   steamRuntimePrep = pkgs.writeShellScriptBin "rocknix-steam-prepare-runtime" ''
     set -eu
 
@@ -146,6 +209,8 @@ EOF
     export STEAM_HOME="''${STEAM_HOME:-/storage/.local/share/Steam}"
     export STEAM_GAMES_ROOT="''${STEAM_GAMES_ROOT:-/storage/games-internal/roms/steam}"
     export FEX_ROOTFS="''${FEX_ROOTFS:-/storage/.local/share/fex-emu/RootFS/ArchLinux}"
+
+    ${steamUinputPrep}/bin/rocknix-steam-ensure-uinput || true
 
     # Steam Input creates a virtual controller through uinput when launching
     # Proton games. The outer guest/FHS has /dev/uinput, but pressure-vessel's
@@ -328,5 +393,16 @@ in
     steamFhs
     steamLauncher
     steamRuntimePrep
+    steamUinputPrep
   ];
+
+  systemd.services.rocknix-steam-uinput = {
+    description = "Prepare the guest uinput device for Steam Input";
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${steamUinputPrep}/bin/rocknix-steam-ensure-uinput";
+      RemainAfterExit = true;
+    };
+  };
 }

@@ -63,6 +63,16 @@ grep -q 'services.dbus' "$ROOT/modules/audio.nix" \
   || fail "audio module must enable D-Bus"
 grep -q 'hardware.bluetooth' "$ROOT/modules/audio.nix" \
   || fail "audio module must enable bluetooth"
+grep -q 'rocknix-steam-ensure-uinput' "$ROOT/modules/steam.nix" \
+  || fail "Steam module must repair guest /dev/uinput before Steam Input starts"
+grep -q '/sys/devices/virtual/misc/uinput/dev' "$ROOT/modules/steam.nix" \
+  || fail "Steam uinput prep must derive the device number from sysfs when available"
+grep -q '/proc/misc' "$ROOT/modules/steam.nix" \
+  || fail "Steam uinput prep must fall back to kernel misc device discovery"
+! grep -q 'mknod /dev/uinput c 10 223' "$ROOT/modules/steam.nix" \
+  || fail "Steam uinput prep must not hardcode the live Thor uinput device number"
+grep -q 'PRESSURE_VESSEL_FILESYSTEMS_RW' "$ROOT/modules/steam.nix" \
+  || fail "Steam module must expose uinput/input devices to pressure-vessel"
 grep -q 'networking.networkmanager' "$ROOT/modules/network.nix" \
   || fail "network module must enable NetworkManager"
 grep -q 'networking.nftables' "$ROOT/modules/network.nix" \
