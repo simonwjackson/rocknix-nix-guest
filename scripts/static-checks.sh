@@ -84,6 +84,46 @@ grep -q 'services.dbus' "$ROOT/modules/audio.nix" \
   || fail "audio module must enable D-Bus"
 grep -q 'hardware.bluetooth' "$ROOT/modules/audio.nix" \
   || fail "audio module must enable bluetooth"
+grep -q 'systemd.services.rocknix-pipewire' "$ROOT/modules/audio.nix" \
+  || fail "audio module must configure a root-scoped PipeWire service for the kiosk session"
+grep -q 'systemd.services.rocknix-pipewire-pulse' "$ROOT/modules/audio.nix" \
+  || fail "audio module must configure a root-scoped PipeWire PulseAudio service"
+grep -q 'systemd.services.rocknix-wireplumber' "$ROOT/modules/audio.nix" \
+  || fail "audio module must configure a root-scoped WirePlumber service"
+grep -q 'wantedBy = \[ "multi-user.target" \]' "$ROOT/modules/audio.nix" \
+  || fail "audio module must start audio services in the kiosk boot target"
+grep -q 'ALSA_CONFIG_UCM2 = ucmPath' "$ROOT/modules/audio.nix" \
+  || fail "audio module must pass guest-owned UCM path to audio services"
+grep -q 'PULSE_SERVER = "unix:/run/user/0/pulse/native"' "$ROOT/modules/audio.nix" \
+  || fail "audio module must point clients at the root PipeWire Pulse socket"
+grep -q 'ayn-odin2-ucm' "$ROOT/flake.nix" \
+  || fail "root flake must expose the guest-owned AYN Odin2 UCM package"
+grep -q 'ALSA_CONFIG_UCM2' "$ROOT/modules/audio.nix" \
+  || fail "audio module must route ALSA UCM lookup to the guest-owned UCM package"
+grep -q 'packages/audio/ayn-odin2-ucm' "$ROOT/modules/audio.nix" \
+  || fail "audio module must consume the in-repo AYN Odin2 UCM package"
+grep -q 'Use case configuration for AYN Odin2' "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/AYN/Odin2/AYN-Odin2.conf" \
+  || fail "AYN Odin2 UCM package must include the card use-case file"
+grep -q 'PlaybackPCM "hw:${CardId},0"' "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/AYN/Odin2/HiFi.conf" \
+  || fail "AYN Odin2 UCM package must expose the speaker playback PCM"
+[ -L "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/conf.d/sm8550/AYN-Odin2.conf" ] \
+  || fail "AYN Odin2 UCM package must include the SM8550 card-name symlink"
+[ -L "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/conf.d/sm8550/ayn-AYNOdin2-.conf" ] \
+  || fail "AYN Odin2 UCM package must include the EFI-compatible card-name symlink"
+! grep -q 'module-alsa-sink\|sink_name=thor_hw0\|rocknix-audio-alsa-sink' "$ROOT/modules/audio.nix" "$ROOT/modules/lid.nix" \
+  || fail "audio path must not depend on the diagnostic thor_hw0 module-alsa-sink workaround"
+grep -q 'rocknix-hardware-button-handler' "$ROOT/modules/lid.nix" \
+  || fail "lid module must own guest hardware button handling"
+grep -q 'rocknix-volume' "$ROOT/modules/lid.nix" \
+  || fail "lid module must provide a guest volume helper"
+grep -q 'find_event_by_name pmic_pwrkey' "$ROOT/modules/lid.nix" \
+  || fail "hardware button handler must discover power input by kernel device name"
+grep -q 'find_event_by_name pmic_resin' "$ROOT/modules/lid.nix" \
+  || fail "hardware button handler must discover volume-down input by kernel device name"
+grep -q 'find_event_by_name gpio-keys' "$ROOT/modules/lid.nix" \
+  || fail "hardware button handler must discover volume-up/lid input by kernel device name"
+grep -q 'HandlePowerKey = "ignore"' "$ROOT/modules/lid.nix" \
+  || fail "logind must not race the guest hardware button handler for power key events"
 grep -q 'rocknix-steam-ensure-uinput' "$ROOT/modules/steam.nix" \
   || fail "Steam module must repair guest /dev/uinput before Steam Input starts"
 grep -q '/sys/devices/virtual/misc/uinput/dev' "$ROOT/modules/steam.nix" \

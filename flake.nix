@@ -21,10 +21,12 @@
             SDL2_classic = pkgsSdl2Classic.SDL2;
           };
           steam = pkgs.callPackage ./packages/steam/package.nix { };
+          ayn-odin2-ucm = pkgs.callPackage ./packages/audio/ayn-odin2-ucm { };
         in {
           default = cemu;
           cemu = cemu;
           steam = steam;
+          ayn-odin2-ucm = ayn-odin2-ucm;
           # Compatibility alias for existing ROCKNIX Layer 14 scripts/docs.
           cemu-rocknix-package = cemu;
         };
@@ -43,6 +45,7 @@
             environment.systemPackages = [
               (packageSetFor targetSystem).cemu
               (packageSetFor targetSystem).steam
+              (packageSetFor targetSystem).ayn-odin2-ucm
             ];
           })
         ];
