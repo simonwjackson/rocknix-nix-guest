@@ -11,7 +11,7 @@
 set -eu
 
 # Compatibility adapter around the package-owned entry point. The product path
-# is the main-space NixOS system package from nix-sm8550 (`bin/cemu`), not the
+# is the main-space NixOS system package from this flake (`bin/cemu`), not the
 # real binary. CEMU_BIN remains a rollback/diagnostic override; the promoted
 # profile is now a fallback for older live guests that have not switched yet.
 # If an override points at `bin/Cemu` and the same output has `bin/cemu`,
@@ -33,7 +33,7 @@ ROM="${1:-}"
 if [ ! -x "$CEMU" ]; then
   if [ -z "${CEMU_BIN:-}" ]; then
     echo "System Cemu package is missing or not executable: $SYSTEM_CEMU" >&2
-    echo "Rebuild/switch the main-space guest with nix-sm8550, promote a fallback with remote-cemu-promote.sh, or pass CEMU_BIN=/nix/store/.../bin/Cemu for diagnostics." >&2
+    echo "Rebuild/switch the main-space guest with the in-repo Cemu package, promote a fallback with remote-cemu-promote.sh, or pass CEMU_BIN=/nix/store/.../bin/Cemu for diagnostics." >&2
   else
     echo "Cemu binary is not executable: $CEMU" >&2
   fi

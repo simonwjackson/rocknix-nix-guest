@@ -142,7 +142,7 @@ fi
 
 printf '\n## Build source references\n' >> "$REPORT"
 printf '\n- Host package: `projects/ROCKNIX/packages/emulators/standalone/cemu-sa/package.mk`\n' >> "$REPORT"
-printf -- '- Guest package repo: `github:simonwjackson/nix-sm8550`\n' >> "$REPORT"
+printf -- '- Guest package source: `rocknix-nix-guest/packages/cemu`\n' >> "$REPORT"
 printf -- '- Guest package manifest: `packages/cemu/manifest.nix`\n' >> "$REPORT"
 printf -- '- Guest package derivation: `packages/cemu/package.nix`\n' >> "$REPORT"
 
