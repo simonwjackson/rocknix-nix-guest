@@ -159,6 +159,12 @@ grep -q 'networking.nftables' "$ROOT/modules/network.nix" \
   || fail "network module must use nftables"
 grep -q 'networking.resolvconf' "$ROOT/modules/network.nix" \
   || fail "network module must explicitly handle resolvconf"
+grep -q 'services.tailscale' "$ROOT/modules/network.nix" \
+  || fail "network module must make Tailscale guest-owned"
+grep -q 'useRoutingFeatures = "client"' "$ROOT/modules/network.nix" \
+  || fail "guest Tailscale must use client routing features"
+grep -q 'tailscale' "$ROOT/modules/network.nix" \
+  || fail "network module must include the tailscale CLI package"
 grep -q 'time.timeZone' "$ROOT/profiles/main-space.nix" \
   || fail "main-space profile must set time.timeZone"
 grep -q 'systemd.services.rocknix-sway-kiosk' "$ROOT/profiles/main-space.nix" \

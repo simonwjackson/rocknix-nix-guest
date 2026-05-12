@@ -12,10 +12,11 @@
 # inside the guest and lets NetworkManager manage DNS directly so
 # nothing else can clobber it.
 #
-# Tailscale lives at the *host* layer per ROCKNIX's existing
-# 099-networkservices autostart contract (and U1's tailscale.up=1
-# default). The host owns the WireGuard interface; guest sees it via
-# the shared netns. No tailscaled in guest.
+# Tailscale is guest-owned in the minimal-host model. The host keeps only
+# enough network substrate for recovery/SSH; the NixOS guest owns the
+# product/development tailnet identity. The nspawn unit binds /dev/net/tun
+# and the guest runs in the shared netns, so tailscaled can create the
+# tailnet interface from inside the guest while preserving host minimalism.
 { pkgs, ... }:
 
 {
@@ -45,11 +46,17 @@
 
   services.resolved.enable = false;
 
+  services.tailscale = {
+    enable = true;
+    useRoutingFeatures = "client";
+  };
+
   environment.systemPackages = with pkgs; [
     iw
     nftables
     iproute2
     networkmanager
     wpa_supplicant
+    tailscale
   ];
 }
