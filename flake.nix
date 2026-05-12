@@ -54,7 +54,12 @@
         system = targetSystem;
         modules = [ ./profiles/dev-env.nix ];
       };
-      toplevel = configuration.config.system.build.toplevel;
+      # The rootfs artifact is the production main-space guest: Sway,
+      # guest-owned audio/input/display, and guest-native packages. The
+      # minimal rocknix-guest configuration remains exposed for evaluation,
+      # but the host autostart path must stage main-space or the device boots
+      # to a container with no compositor.
+      toplevel = mainSpaceConfiguration.config.system.build.toplevel;
       mkRootfs = hostSystem:
         let
           pkgs = import nixpkgs { system = hostSystem; };
