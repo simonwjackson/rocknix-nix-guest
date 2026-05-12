@@ -1,80 +1,80 @@
 # HOW TO FALL BACK
 
-This file ships to `/flash/HOW-TO-FALL-BACK.md` on every ROCKNIX
-THIN_HOST=yes image. It is readable from a card reader on another
-machine without booting the device.
+This file ships to `/flash/HOW-TO-FALL-BACK.md` on SM8550 images. It is
+readable from a card reader on another machine without booting the device.
 
 ## What this image is
 
-This is a `THIN_HOST=yes` image. Default boot reaches `rocknix-graphical.target`,
-which is the Layer 14 Nix main-space (a systemd-nspawn guest that owns the
-display, audio, Bluetooth, input, and Wi-Fi from inside its own NixOS
-config).
+Default boot reaches `rocknix-graphical.target`, which starts the NixOS guest
+(`rocknix-guest-v2.service`) as the main product space. The guest owns display,
+audio, input, networking policy, Steam/Cemu launchers, and hardware-button
+behavior.
 
-A `THIN_HOST=no` image is the regular ROCKNIX image — sway + Emulationstation
-running directly on the host. You can identify which one you have:
+ROCKNIX remains the recovery/update substrate. Recovery is explicit; the host no
+longer automatically restarts the legacy UI if the guest crashes.
+
+Identify the current boot mode:
 
 ```text
-ssh root@thor 'systemctl get-default; ls /flash/HOW-TO-FALL-BACK.md 2>/dev/null'
+ssh root@thor 'systemctl get-default; systemctl is-active rocknix-guest-v2.service'
 ```
 
-`rocknix-graphical.target` + the file present → THIN_HOST=yes.
-`graphical.target` + the file absent → THIN_HOST=no.
+- `rocknix-graphical.target` + active guest → Nix main-space.
+- `rocknix.target` or inactive guest after using a recovery toggle → ROCKNIX
+  recovery.
 
 ## Symptoms of a guest failure
 
-- Black screen for more than 30 seconds after boot
-- No SSH on `root@thor:22`
-- Lid open / power button does nothing visible
-- Display shows the boot splash and never advances
+- Black screen for more than 30 seconds after boot.
+- Lid open / power button does nothing visible.
+- Display shows the boot splash and never advances.
+- Host SSH works, but `rocknix-guest-v2.service` repeatedly fails.
 
-If host SSH still works but the display is blank, the guest may be
-crashing while the host's recovery toggle is fine — try the toggle
-first.
+If host SSH still works, use the SSH recovery path first. If SSH is unavailable,
+use the card-reader flag path.
 
-## Recovery (no SSH, no card reader)
+## Recovery with SSH
 
-Hold the **POWER + VOLUME-UP** buttons for 8 seconds while booting (TODO:
-verify the exact device key combo per device). This sets
-`rocknix.safe=1` on the kernel cmdline for one boot only. The boot
-will land in the legacy ROCKNIX UI (essway). The override clears on
-next reboot — do whatever fix you need, then power-cycle normally.
+```text
+ssh root@thor
+touch /flash/rocknix.no-nspawn
+reboot
+```
 
-## Recovery (card reader, no booted device)
+The next boot routes to ROCKNIX recovery instead of Nix main-space.
+
+## Recovery with card reader
 
 1. Power off the device.
-2. Eject the storage card (or open the case to reach the on-board
-   eMMC if soldered).
-3. Mount the FAT/EXFAT `/flash` partition on another machine.
-4. Create the flag file:
+2. Mount the `/flash` partition on another machine.
+3. Create the flag file:
 
    ```text
    touch /path/to/flash/rocknix.no-nspawn
    ```
 
-5. Eject and reinstall.
-6. Power on. Boot lands in legacy ROCKNIX UI.
+4. Eject/reinstall the card or storage device.
+5. Power on. Boot routes to ROCKNIX recovery.
 
-The flag file is **sticky** — it persists across reboots until you
-explicitly remove it. This is intentional: a stuck "I'm in recovery
-mode" state should require a conscious action to exit.
+The flag file is sticky and persists across reboots until removed.
 
-## Recovery (booted but guest crashing repeatedly)
+## Recovery with one-boot cmdline
 
-1. SSH to the device: `ssh root@thor`
-2. Confirm host SSH works: `whoami` should return `root`.
-3. `touch /flash/rocknix.no-nspawn`
-4. `reboot`
-5. Boot lands in legacy ROCKNIX UI.
-
-## Confirming you are in recovery mode
+If the bootloader exposes a way to add kernel arguments, boot once with:
 
 ```text
-systemctl get-default                       # graphical.target (not rocknix-graphical.target)
-systemctl is-active rocknix-guest-v2        # inactive
-systemctl is-active sway                    # active
-systemctl is-active essway                  # active
-systemctl status rocknix-recovery-toggle    # shows the reasons it triggered
+rocknix.safe=1
+```
+
+That routes this boot to ROCKNIX recovery. The override clears on the next
+normal reboot.
+
+## Confirming recovery mode
+
+```text
+systemctl get-default                    # rocknix.target
+systemctl is-active rocknix-guest-v2     # inactive or not started
+systemctl status rocknix-recovery-toggle # shows which recovery trigger won
 ```
 
 ## Exiting recovery mode
@@ -84,20 +84,27 @@ rm /flash/rocknix.no-nspawn
 reboot
 ```
 
-If you used the `rocknix.safe=1` cmdline path, exiting is automatic:
-just `reboot` without the button-hold.
+If you used `rocknix.safe=1`, exiting is automatic: reboot without that cmdline
+argument.
 
-## Where to find logs after a failure
+## Guest update/promotion logs
 
-- `journalctl -b -1`   — previous boot's journal
-- `/var/log/rocknix-host-reclaim.log` — reclaim contract decisions
-- `/var/log/layer14-soak*.log` — soak harness output (if running)
-- `/var/log/boot.log`  — ROCKNIX autostart trace (legacy host UI)
-- `/storage/.cache/iwd/*.log` — Wi-Fi association history
+Image updates install a packaged guest source under `/usr/lib/nix-integration/guest`.
+`rocknix-guest-promote.service` applies that source to the persistent guest
+rootfs at boot when revisions differ.
+
+Useful checks:
+
+```text
+cat /usr/lib/nix-integration/guest-revision
+cat /storage/machines/rocknix-guest/etc/rocknix-guest-revision
+cat /storage/machines/rocknix-guest/etc/rocknix-guest-system-path
+journalctl -b -u rocknix-guest-promote.service --no-pager
+journalctl -b -u rocknix-guest-v2.service --no-pager
+```
 
 ## Re-flashing
 
-If recovery does not get you back to a working device, the image is
-flashable from the standard ROCKNIX recovery flow (fastboot / SD-card
-reflash) without losing `/storage`. Your ROMs, saves, and configs
-live on `/storage` and are not touched by an image flash.
+If recovery does not get you back to a working device, use the standard ROCKNIX
+reflash/update flow. `/storage` holds ROMs, saves, configs, and the persistent
+guest rootfs; a normal image update does not intentionally wipe it.

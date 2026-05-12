@@ -36,10 +36,10 @@ profile is booted.
 
 `guest/flake.nix` exposes three configurations:
 
-- `nixosConfigurations.rocknix-guest` — Layer 10b minimal (default
-  closure used by the rootfs builder).
-- `nixosConfigurations.rocknix-guest-main-space` — Layer 14 kiosk for
-  THIN_HOST=yes flashed images.
+- `nixosConfigurations.rocknix-guest` — Layer 10b/minimal evaluation
+  target retained for debugging.
+- `nixosConfigurations.rocknix-guest-main-space` — production Layer 14
+  kiosk used by the rootfs builder and host promotion service.
 - `nixosConfigurations.rocknix-guest-dev-env` — interactive dev-env.
 
 The shipped image flashes with `main-space` active. The dev-env

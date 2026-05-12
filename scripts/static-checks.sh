@@ -330,14 +330,18 @@ grep -q 'rocknix.safe=1' "${L14_FALLBACK_DOC}" \
 # U10: Layer 14 contract doc.
 L14_CONTRACT="$ROOT/docs/contracts/layer14-main-space-contract.md"
 [ -f "${L14_CONTRACT}" ] || fail "missing Layer 14 contract doc (U10)"
-grep -q 'THIN_HOST' "${L14_CONTRACT}" \
-  || fail "Layer 14 contract must document THIN_HOST build flag (U10)"
+! grep -q 'THIN_HOST' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must not document removed THIN_HOST build flag (U10)"
 grep -q 'rocknix-guest-v2.service' "${L14_CONTRACT}" \
   || fail "Layer 14 contract must document the v2 guest unit (U10)"
-grep -q 'reclaim' "${L14_CONTRACT}" \
-  || fail "Layer 14 contract must document the reclaim contract (U10)"
+grep -q 'rocknix-guest-promote.service' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document guest promotion service (U10)"
+grep -q 'no `ExecStopPost=` fallback/reclaim hook' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document removal of automatic host reclaim (U10)"
 grep -q 'soak' "${L14_CONTRACT}" \
   || fail "Layer 14 contract must document the soak gate (U10)"
+grep -q 'rocknix-guest-revision' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document guest revision markers (U10)"
 grep -q 'SM8550' "${L14_CONTRACT}" \
   || fail "Layer 14 contract must document SM8550-only scope (U10)"
 
