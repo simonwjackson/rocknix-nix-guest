@@ -218,7 +218,7 @@ in
   ];
 
   # Bake a device-aware sway config into /etc. The shared SM8550 defaults
-  # remain the Thor/Odin2-validated display and touch routing; Portal can
+  # remain the Thor-validated display and touch routing; Odin 2 Portal can
   # override only the measured device block without forking the kiosk policy.
   environment.etc."sway/config".text = ''
     # ROCKNIX Layer 14 sway config (${sm8550.deviceId} / SM8550).

@@ -33,12 +33,12 @@ grep -q '(packageSetFor targetSystem).cemu' "$ROOT/flake.nix" \
   || fail "main-space guest must install in-repo Cemu package"
 grep -q '(packageSetFor targetSystem).steam' "$ROOT/flake.nix" \
   || fail "main-space guest must install in-repo Steam package helpers"
-grep -q 'rocknix-guest-main-space-odin2' "$ROOT/flake.nix" \
-  || fail "guest flake must expose an Odin2 main-space configuration"
-grep -q 'rocknix-guest-main-space-portal' "$ROOT/flake.nix" \
-  || fail "guest flake must expose a Portal main-space configuration"
-grep -q '"rootfs-portal"' "$ROOT/flake.nix" \
-  || fail "guest flake must expose a Portal rootfs package"
+grep -q 'rocknix-guest-main-space-thor' "$ROOT/flake.nix" \
+  || fail "guest flake must expose a Thor main-space configuration"
+grep -q 'rocknix-guest-main-space-odin2portal' "$ROOT/flake.nix" \
+  || fail "guest flake must expose an Odin 2 Portal main-space configuration"
+grep -q '"rootfs-odin2portal"' "$ROOT/flake.nix" \
+  || fail "guest flake must expose an Odin 2 Portal rootfs package"
 old_package_repo="nix-sm${SM8550_SUFFIX:-8550}"
 ! grep -R "github:simonwjackson/$old_package_repo\|nix.registry.$old_package_repo\|$old_package_repo.packages" \
   "$ROOT/flake.nix" "$ROOT/flake.lock" "$ROOT/README.md" "$ROOT/launchers" >/tmp/rocknix-nix-guest-old-package-repo-grep.$$ \
@@ -78,8 +78,8 @@ for f in \
   profiles/ssh.nix \
   profiles/main-space.nix \
   profiles/dev-env.nix \
-  profiles/devices/odin2.nix \
-  profiles/devices/portal.nix; do
+  profiles/devices/thor.nix \
+  profiles/devices/odin2portal.nix; do
   [ -f "$ROOT/$f" ] || fail "missing guest module/profile/package: $f"
 done
 

@@ -52,12 +52,12 @@
           })
         ];
       };
-      mainSpaceOdin2Configuration = mainSpaceConfigurationFor ./profiles/devices/odin2.nix;
-      mainSpacePortalConfiguration = mainSpaceConfigurationFor ./profiles/devices/portal.nix;
+      mainSpaceThorConfiguration = mainSpaceConfigurationFor ./profiles/devices/thor.nix;
+      mainSpaceOdin2PortalConfiguration = mainSpaceConfigurationFor ./profiles/devices/odin2portal.nix;
       # Backward-compatible alias: the production packaged rootfs remains the
-      # hardware-validated Odin 2 / Thor profile until host packaging selects a
+      # hardware-validated Thor profile until host packaging selects a
       # device-specific rootfs explicitly.
-      mainSpaceConfiguration = mainSpaceOdin2Configuration;
+      mainSpaceConfiguration = mainSpaceThorConfiguration;
       devEnvConfiguration = nixpkgs.lib.nixosSystem {
         system = targetSystem;
         modules = [ ./profiles/dev-env.nix ];
@@ -107,19 +107,19 @@
     {
       nixosConfigurations.rocknix-guest = configuration;
       nixosConfigurations.rocknix-guest-main-space = mainSpaceConfiguration;
-      nixosConfigurations.rocknix-guest-main-space-odin2 = mainSpaceOdin2Configuration;
-      nixosConfigurations.rocknix-guest-main-space-portal = mainSpacePortalConfiguration;
+      nixosConfigurations.rocknix-guest-main-space-thor = mainSpaceThorConfiguration;
+      nixosConfigurations.rocknix-guest-main-space-odin2portal = mainSpaceOdin2PortalConfiguration;
       nixosConfigurations.rocknix-guest-dev-env = devEnvConfiguration;
       packages = forAllHostSystems (hostSystem:
         let
-          rootfsOdin2 = mkRootfs hostSystem mainSpaceOdin2Configuration;
-          rootfsPortal = mkRootfs hostSystem mainSpacePortalConfiguration;
-          rootfs = rootfsOdin2;
+          rootfsThor = mkRootfs hostSystem mainSpaceThorConfiguration;
+          rootfsOdin2Portal = mkRootfs hostSystem mainSpaceOdin2PortalConfiguration;
+          rootfs = rootfsThor;
         in
         (packageSetFor hostSystem) // {
           inherit rootfs;
-          "rootfs-odin2" = rootfsOdin2;
-          "rootfs-portal" = rootfsPortal;
+          "rootfs-thor" = rootfsThor;
+          "rootfs-odin2portal" = rootfsOdin2Portal;
         });
       checks = forAllHostSystems (system:
         let pkgs = nixpkgs.legacyPackages.${system};

@@ -1,7 +1,7 @@
 # Shared SM8550 device policy with small per-device overrides.
 #
-# The default remains the hardware-validated Odin 2/Thor behavior. Additional
-# devices (Portal, etc.) should override only the measured differences: display
+# The default remains the hardware-validated Thor behavior. Additional
+# devices (Odin 2 Portal, etc.) should override only the measured differences: display
 # layout, input event names, audio UCM package/card names, and performance
 # policy. Main-space modules consume these options instead of hardcoding Thor
 # assumptions inline.
@@ -14,15 +14,15 @@ in
 {
   options.rocknix.sm8550 = {
     deviceId = mkOption {
-      type = types.enum [ "odin2" "portal" ];
-      default = "odin2";
+      type = types.enum [ "thor" "odin2portal" ];
+      default = "thor";
       description = "SM8550 handheld variant targeted by this guest profile.";
     };
 
     display.swayDeviceConfig = mkOption {
       type = types.lines;
       default = ''
-        # ROCKNIX Layer 14 sway device block (Odin 2 / Thor, SM8550).
+        # ROCKNIX Layer 14 sway device block (Thor, SM8550).
         # Validated on Thor 2026-05-08: foot terminal renders readably in
         # landscape orientation on DSI-2 with these transforms.
         output DSI-2 transform 90

@@ -1,6 +1,6 @@
 # rocknix-nix-guest
 
-NixOS guest flake, emulator packages, and guest-side launch adapters for ROCKNIX SM8550 main-space experiments, with Odin 2/Thor as the validated default and Portal as an explicit device-profile target.
+NixOS guest flake, emulator packages, and guest-side launch adapters for ROCKNIX SM8550 main-space experiments, with Thor as the validated default and Odin 2 Portal as an explicit device-profile target.
 
 This repo owns the reviewed Nix surface for the SM8550 guest path:
 
@@ -32,17 +32,17 @@ nix flake show --all-systems .
 Expected NixOS configurations:
 
 - `nixosConfigurations.rocknix-guest`
-- `nixosConfigurations.rocknix-guest-main-space` (backward-compatible alias to Odin 2)
-- `nixosConfigurations.rocknix-guest-main-space-odin2`
-- `nixosConfigurations.rocknix-guest-main-space-portal`
+- `nixosConfigurations.rocknix-guest-main-space` (backward-compatible alias to Thor)
+- `nixosConfigurations.rocknix-guest-main-space-thor`
+- `nixosConfigurations.rocknix-guest-main-space-odin2portal`
 - `nixosConfigurations.rocknix-guest-dev-env`
 
 Rootfs package outputs are exposed for `x86_64-linux` and `aarch64-linux` hosts:
 
 ```sh
-nix build .#rootfs          # alias to Odin 2 for current ROCKNIX packaging
-nix build .#rootfs-odin2
-nix build .#rootfs-portal
+nix build .#rootfs          # alias to Thor for current ROCKNIX packaging
+nix build .#rootfs-thor
+nix build .#rootfs-odin2portal
 sha256sum result/tarball/*.tar.*
 ```
 
@@ -64,9 +64,9 @@ Current package outputs:
 | `steam` | ROCKNIX-informed guest-native Steam ARM64 package helpers. |
 | `default` | Alias to `cemu`. |
 | `cemu-rocknix-package` | Transitional compatibility alias for existing ROCKNIX Layer 14 consumers. |
-| `rootfs` | Layer 10b guest rootfs tarball imported by current ROCKNIX host tooling; aliases Odin 2. |
-| `rootfs-odin2` | Odin 2/Thor main-space rootfs tarball. |
-| `rootfs-portal` | Portal main-space rootfs tarball using the shared SM8550 defaults plus Portal profile overrides. |
+| `rootfs` | Layer 10b guest rootfs tarball imported by current ROCKNIX host tooling; aliases Thor. |
+| `rootfs-thor` | Thor main-space rootfs tarball. |
+| `rootfs-odin2portal` | Odin 2 Portal main-space rootfs tarball using the shared SM8550 defaults plus Odin 2 Portal profile overrides. |
 
 The rootfs tarball is imported by ROCKNIX host tooling under the configured Layer 10 guest root, normally `/storage/machines/rocknix-guest`.
 
