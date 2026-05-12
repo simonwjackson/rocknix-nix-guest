@@ -39,6 +39,10 @@ grep -q 'rocknix-guest-main-space-odin2portal' "$ROOT/flake.nix" \
   || fail "guest flake must expose an Odin 2 Portal main-space configuration"
 grep -q '"rootfs-odin2portal"' "$ROOT/flake.nix" \
   || fail "guest flake must expose an Odin 2 Portal rootfs package"
+grep -q 'output DSI-1 transform 270' "$ROOT/profiles/devices/odin2portal.nix" \
+  || fail "Odin 2 Portal profile must keep its upright DSI-1 orientation"
+grep -q 'input type:touch map_to_output DSI-1' "$ROOT/profiles/devices/odin2portal.nix" \
+  || fail "Odin 2 Portal profile must route touch to its single DSI-1 panel"
 old_package_repo="nix-sm${SM8550_SUFFIX:-8550}"
 ! grep -R "github:simonwjackson/$old_package_repo\|nix.registry.$old_package_repo\|$old_package_repo.packages" \
   "$ROOT/flake.nix" "$ROOT/flake.lock" "$ROOT/README.md" "$ROOT/launchers" >/tmp/rocknix-nix-guest-old-package-repo-grep.$$ \
