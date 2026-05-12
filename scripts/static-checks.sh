@@ -124,6 +124,10 @@ grep -q 'find_event_by_name gpio-keys' "$ROOT/modules/lid.nix" \
   || fail "hardware button handler must discover volume-up/lid input by kernel device name"
 grep -q 'HandlePowerKey = "ignore"' "$ROOT/modules/lid.nix" \
   || fail "logind must not race the guest hardware button handler for power key events"
+grep -q 'wantedBy = \[ "multi-user.target" \]' "$ROOT/modules/lid.nix" \
+  || fail "hardware button handler must be wanted by multi-user.target"
+! grep -q '"rocknix-sway-kiosk.service"' "$ROOT/modules/lid.nix" \
+  || fail "hardware button handler must not be ordered behind the compositor"
 grep -q 'rocknix-steam-ensure-uinput' "$ROOT/modules/steam.nix" \
   || fail "Steam module must repair guest /dev/uinput before Steam Input starts"
 grep -q '/sys/devices/virtual/misc/uinput/dev' "$ROOT/modules/steam.nix" \
@@ -142,6 +146,14 @@ grep -q 'networking.resolvconf' "$ROOT/modules/network.nix" \
   || fail "network module must explicitly handle resolvconf"
 grep -q 'time.timeZone' "$ROOT/profiles/main-space.nix" \
   || fail "main-space profile must set time.timeZone"
+grep -q 'systemd.services.rocknix-sway-kiosk' "$ROOT/profiles/main-space.nix" \
+  || fail "main-space profile must define the sway kiosk service"
+grep -q 'wantedBy = \[ "multi-user.target" \]' "$ROOT/profiles/main-space.nix" \
+  || fail "sway kiosk service must be wanted by multi-user.target"
+grep -q 'after = \[ "systemd-user-sessions.service" "rocknix-session-dbus.service" \]' "$ROOT/profiles/main-space.nix" \
+  || fail "sway kiosk service must order only after concrete prerequisites"
+! grep -q 'after = \[ "multi-user.target"' "$ROOT/profiles/main-space.nix" \
+  || fail "sway kiosk service must not order After=multi-user.target"
 grep -q 'CEMU_BIOS_ROOT = "/storage/roms/bios/cemu"' "$ROOT/profiles/main-space.nix" \
   || fail "main-space session must own temporary Cemu BIOS compatibility root"
 grep -q 'CEMU_AFFINITY_MASK = "0xF8"' "$ROOT/profiles/main-space.nix" \

@@ -112,7 +112,11 @@ in
   systemd.services.rocknix-sway-kiosk = {
     description = "ROCKNIX Layer 14 sway kiosk session";
     wantedBy = [ "multi-user.target" ];
-    after = [ "multi-user.target" "systemd-user-sessions.service" "rocknix-session-dbus.service" ];
+    # Do not order After=multi-user.target here. This service is WantedBy
+    # multi-user.target; ordering it after the target lets the target complete
+    # without reliably launching the compositor during boot. Order only after
+    # the concrete prerequisites it actually needs.
+    after = [ "systemd-user-sessions.service" "rocknix-session-dbus.service" ];
     requires = [ "rocknix-session-dbus.service" ];
 
     # sway's wrapper invokes dbus-run-session which spawns dbus-daemon.

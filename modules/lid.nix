@@ -378,7 +378,6 @@ in
     # "no PipeWire/PulseAudio control socket available".
     after = [
       "systemd-user-sessions.service"
-      "rocknix-sway-kiosk.service"
       "rocknix-pipewire.service"
       "rocknix-pipewire-pulse.service"
       "rocknix-wireplumber.service"
