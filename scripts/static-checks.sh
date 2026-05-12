@@ -33,6 +33,12 @@ grep -q '(packageSetFor targetSystem).cemu' "$ROOT/flake.nix" \
   || fail "main-space guest must install in-repo Cemu package"
 grep -q '(packageSetFor targetSystem).steam' "$ROOT/flake.nix" \
   || fail "main-space guest must install in-repo Steam package helpers"
+grep -q 'rocknix-guest-main-space-odin2' "$ROOT/flake.nix" \
+  || fail "guest flake must expose an Odin2 main-space configuration"
+grep -q 'rocknix-guest-main-space-portal' "$ROOT/flake.nix" \
+  || fail "guest flake must expose a Portal main-space configuration"
+grep -q '"rootfs-portal"' "$ROOT/flake.nix" \
+  || fail "guest flake must expose a Portal rootfs package"
 old_package_repo="nix-sm${SM8550_SUFFIX:-8550}"
 ! grep -R "github:simonwjackson/$old_package_repo\|nix.registry.$old_package_repo\|$old_package_repo.packages" \
   "$ROOT/flake.nix" "$ROOT/flake.lock" "$ROOT/README.md" "$ROOT/launchers" >/tmp/rocknix-nix-guest-old-package-repo-grep.$$ \
@@ -55,6 +61,7 @@ grep -q 'profiles/ssh.nix' "$ROOT/rocknix-guest.nix" \
 
 for f in \
   modules/base.nix \
+  modules/device.nix \
   modules/tools.nix \
   modules/ssh.nix \
   modules/display.nix \
@@ -70,7 +77,9 @@ for f in \
   profiles/minimal.nix \
   profiles/ssh.nix \
   profiles/main-space.nix \
-  profiles/dev-env.nix; do
+  profiles/dev-env.nix \
+  profiles/devices/odin2.nix \
+  profiles/devices/portal.nix; do
   [ -f "$ROOT/$f" ] || fail "missing guest module/profile/package: $f"
 done
 
@@ -100,8 +109,8 @@ grep -q 'ayn-odin2-ucm' "$ROOT/flake.nix" \
   || fail "root flake must expose the guest-owned AYN Odin2 UCM package"
 grep -q 'ALSA_CONFIG_UCM2' "$ROOT/modules/audio.nix" \
   || fail "audio module must route ALSA UCM lookup to the guest-owned UCM package"
-grep -q 'packages/audio/ayn-odin2-ucm' "$ROOT/modules/audio.nix" \
-  || fail "audio module must consume the in-repo AYN Odin2 UCM package"
+grep -q 'packages/audio/ayn-odin2-ucm' "$ROOT/modules/device.nix" \
+  || fail "SM8550 device defaults must consume the in-repo AYN Odin2 UCM package"
 grep -q 'Use case configuration for AYN Odin2' "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/AYN/Odin2/AYN-Odin2.conf" \
   || fail "AYN Odin2 UCM package must include the card use-case file"
 grep -q 'PlaybackPCM "hw:${CardId},0"' "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/AYN/Odin2/HiFi.conf" \
@@ -116,12 +125,14 @@ grep -q 'rocknix-hardware-button-handler' "$ROOT/modules/lid.nix" \
   || fail "lid module must own guest hardware button handling"
 grep -q 'rocknix-volume' "$ROOT/modules/lid.nix" \
   || fail "lid module must provide a guest volume helper"
-grep -q 'find_event_by_name pmic_pwrkey' "$ROOT/modules/lid.nix" \
-  || fail "hardware button handler must discover power input by kernel device name"
-grep -q 'find_event_by_name pmic_resin' "$ROOT/modules/lid.nix" \
-  || fail "hardware button handler must discover volume-down input by kernel device name"
-grep -q 'find_event_by_name gpio-keys' "$ROOT/modules/lid.nix" \
-  || fail "hardware button handler must discover volume-up/lid input by kernel device name"
+grep -q 'powerEventNames = mkOption' "$ROOT/modules/device.nix" \
+  || fail "SM8550 device module must declare overrideable power input names"
+grep -q 'volumeDownEventNames = mkOption' "$ROOT/modules/device.nix" \
+  || fail "SM8550 device module must declare overrideable volume-down input names"
+grep -q 'volumeUpLidEventNames = mkOption' "$ROOT/modules/device.nix" \
+  || fail "SM8550 device module must declare overrideable volume-up/lid input names"
+grep -q 'find_event_by_names' "$ROOT/modules/lid.nix" \
+  || fail "hardware button handler must discover input devices from the SM8550 device profile"
 grep -q 'HandlePowerKey = "ignore"' "$ROOT/modules/lid.nix" \
   || fail "logind must not race the guest hardware button handler for power key events"
 grep -q 'wantedBy = \[ "multi-user.target" \]' "$ROOT/modules/lid.nix" \
@@ -156,8 +167,10 @@ grep -q 'after = \[ "systemd-user-sessions.service" "rocknix-session-dbus.servic
   || fail "sway kiosk service must not order After=multi-user.target"
 grep -q 'CEMU_BIOS_ROOT = "/storage/roms/bios/cemu"' "$ROOT/profiles/main-space.nix" \
   || fail "main-space session must own temporary Cemu BIOS compatibility root"
-grep -q 'CEMU_AFFINITY_MASK = "0xF8"' "$ROOT/profiles/main-space.nix" \
-  || fail "main-space session must own measured SM8550 Cemu affinity default"
+grep -q 'CEMU_AFFINITY_MASK = sm8550.performance.cemuAffinityMask' "$ROOT/profiles/main-space.nix" \
+  || fail "main-space session must consume the SM8550 device Cemu affinity default"
+grep -q 'default = "0xF8"' "$ROOT/modules/device.nix" \
+  || fail "SM8550 device defaults must retain measured Odin2 Cemu affinity default"
 
 # Launch adapters.
 for launcher in \

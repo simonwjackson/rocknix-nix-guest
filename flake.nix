@@ -22,7 +22,8 @@
           };
           steam = pkgs.callPackage ./packages/steam/package.nix { };
           ayn-odin2-ucm = pkgs.callPackage ./packages/audio/ayn-odin2-ucm { };
-        in {
+        in
+        {
           default = cemu;
           cemu = cemu;
           steam = steam;
@@ -34,10 +35,11 @@
         system = targetSystem;
         modules = [ ./rocknix-guest.nix ];
       };
-      mainSpaceConfiguration = nixpkgs.lib.nixosSystem {
+      mainSpaceConfigurationFor = deviceProfile: nixpkgs.lib.nixosSystem {
         system = targetSystem;
         modules = [
           ./profiles/main-space.nix
+          deviceProfile
           ({ ... }: {
             # Keep the emulator package source of truth in this guest flake so
             # profile composition, package derivations, and launch adapters are
@@ -50,6 +52,12 @@
           })
         ];
       };
+      mainSpaceOdin2Configuration = mainSpaceConfigurationFor ./profiles/devices/odin2.nix;
+      mainSpacePortalConfiguration = mainSpaceConfigurationFor ./profiles/devices/portal.nix;
+      # Backward-compatible alias: the production packaged rootfs remains the
+      # hardware-validated Odin 2 / Thor profile until host packaging selects a
+      # device-specific rootfs explicitly.
+      mainSpaceConfiguration = mainSpaceOdin2Configuration;
       devEnvConfiguration = nixpkgs.lib.nixosSystem {
         system = targetSystem;
         modules = [ ./profiles/dev-env.nix ];
@@ -59,16 +67,18 @@
       # minimal rocknix-guest configuration remains exposed for evaluation,
       # but the host autostart path must stage main-space or the device boots
       # to a container with no compositor.
-      toplevel = mainSpaceConfiguration.config.system.build.toplevel;
-      mkRootfs = hostSystem:
+      mkRootfs = hostSystem: configurationToPackage:
         let
           pkgs = import nixpkgs { system = hostSystem; };
+          toplevel = configurationToPackage.config.system.build.toplevel;
           closure = pkgs.closureInfo {
             rootPaths = [ toplevel ];
           };
-        in pkgs.runCommand "rocknix-layer10b-guest-rootfs" {
-          nativeBuildInputs = [ pkgs.coreutils pkgs.gnutar pkgs.zstd ];
-        } ''
+        in
+        pkgs.runCommand "rocknix-layer10b-guest-rootfs"
+          {
+            nativeBuildInputs = [ pkgs.coreutils pkgs.gnutar pkgs.zstd ];
+          } ''
           mkdir -p root/nix/store root/sbin root/usr/bin root/tmp root/proc root/sys root/dev root/run root/etc root/var root/var/lib $out/tarball
           chmod 1777 root/tmp
           while IFS= read -r store_path; do
@@ -93,22 +103,31 @@
             -cf $out/tarball/rocknix-layer10b-guest-rootfs-aarch64-linux.tar.zst \
             -C root .
         '';
-    in {
+    in
+    {
       nixosConfigurations.rocknix-guest = configuration;
       nixosConfigurations.rocknix-guest-main-space = mainSpaceConfiguration;
+      nixosConfigurations.rocknix-guest-main-space-odin2 = mainSpaceOdin2Configuration;
+      nixosConfigurations.rocknix-guest-main-space-portal = mainSpacePortalConfiguration;
       nixosConfigurations.rocknix-guest-dev-env = devEnvConfiguration;
       packages = forAllHostSystems (hostSystem:
         let
-          rootfs = mkRootfs hostSystem;
-        in (packageSetFor hostSystem) // {
+          rootfsOdin2 = mkRootfs hostSystem mainSpaceOdin2Configuration;
+          rootfsPortal = mkRootfs hostSystem mainSpacePortalConfiguration;
+          rootfs = rootfsOdin2;
+        in
+        (packageSetFor hostSystem) // {
           inherit rootfs;
+          "rootfs-odin2" = rootfsOdin2;
+          "rootfs-portal" = rootfsPortal;
         });
       checks = forAllHostSystems (system:
         let pkgs = nixpkgs.legacyPackages.${system};
         in {
-          static = pkgs.runCommand "rocknix-nix-guest-static-checks" {
-            nativeBuildInputs = [ pkgs.shellcheck ];
-          } ''
+          static = pkgs.runCommand "rocknix-nix-guest-static-checks"
+            {
+              nativeBuildInputs = [ pkgs.shellcheck ];
+            } ''
             cd ${self}
             ${pkgs.bash}/bin/bash scripts/static-checks.sh
             touch $out

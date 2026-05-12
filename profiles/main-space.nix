@@ -18,7 +18,7 @@
 # and `exec foot` so a cold boot lands the user on something interactive
 # instead of a black screen. The audio/Steam/Cemu module composition is
 # unchanged.
-{ lib, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   # Status line script for swaybar. Lives as a separate file rather
@@ -27,6 +27,8 @@ let
   # multi-token script. As an absolute path to a writeShellScript
   # output, it survives sway parsing untouched and runs under the same
   # bash the kiosk unit adds to its PATH.
+  sm8550 = config.rocknix.sm8550;
+
   swayBarStatus = pkgs.writeShellScript "sway-bar-status" ''
     while true; do
       cap=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null \
@@ -42,6 +44,7 @@ in
 {
   imports = [
     ../modules/base.nix
+    ../modules/device.nix
     ../modules/tools.nix
     ../modules/ssh.nix
     ../modules/display.nix
@@ -195,7 +198,7 @@ in
       CEMU_BIOS_ROOT = "/storage/roms/bios/cemu";
       # Measured SM8550 Cemu affinity policy. Runtime A/B harnesses can set
       # CEMU_AFFINITY_MASK=none to test scheduler behavior explicitly.
-      CEMU_AFFINITY_MASK = "0xF8";
+      CEMU_AFFINITY_MASK = sm8550.performance.cemuAffinityMask;
 
       WLR_NO_HARDWARE_CURSORS = "1";
       WLR_LIBINPUT_NO_DEVICES = "1";
@@ -214,62 +217,15 @@ in
     btop
   ];
 
-  # Bake a Thor-aware sway config into /etc. Mirrors legacy ROCKNIX's
-  # /storage/.config/sway/config so the panels render correctly on the
-  # AYN Thor: DSI-2 is the main 1080x1920 panel (held landscape, panel
-  # is physically portrait, so transform 90), DSI-1 is the smaller
-  # 1080x1240 secondary panel.
+  # Bake a device-aware sway config into /etc. The shared SM8550 defaults
+  # remain the Thor/Odin2-validated display and touch routing; Portal can
+  # override only the measured device block without forking the kiosk policy.
   environment.etc."sway/config".text = ''
-    # ROCKNIX Layer 14 sway config (Thor / SM8550).
-    # Validated on Thor 2026-05-08: foot terminal renders readably in
-    # landscape orientation on DSI-2 with these transforms.
+    # ROCKNIX Layer 14 sway config (${sm8550.deviceId} / SM8550).
     seat * hide_cursor 1000
     default_border none
 
-    output DSI-2 transform 90
-    output DSI-2 scale 2.0
-    output DSI-2 pos 0 0
-    output DSI-2 bg #000000 solid_color
-    output DSI-2 allow_tearing yes
-    output DSI-2 max_render_time off
-
-    # Thor's bottom panel: 1080x1240 native, same physical orientation
-    # as DSI-2 (panel is portrait, device is held landscape). transform
-    # 90 + scale 2.0 yields 620x540 logical, stacked under DSI-2's
-    # 960x540 starting at y=540. Both panels share the device's full
-    # physical width but the bottom panel is shorter, so its logical
-    # width is narrower.
-    output DSI-1 enable
-    output DSI-1 transform 90
-    output DSI-1 scale 2.0
-    output DSI-1 pos 0 540
-    output DSI-1 bg #000000 solid_color
-
-    # Touch routing for Thor's dual-screen design.
-    #
-    # Default: pin all touch sources to the active (top) panel. This
-    # is the safe behaviour on kernels that don't yet name the two
-    # ft5x06 controllers distinctly -- without it, bottom-panel taps
-    # would either be dropped or land on the wrong surface because
-    # both controllers report identical libinput identifiers
-    # (vendor:product:name = 0:0:generic_ft5x06_(8d)).
-    input type:touch map_to_output DSI-2
-
-    # After-patch identifiers (see SM8550 kernel patch
-    # 0054-edt-ft5x06-honour-DT-input-name.patch and DT input-name
-    # properties on the touchscreen@38 nodes in qcs8550-ayn-thor.dts):
-    # the two controllers expose distinct names that sway can address
-    # individually, and these per-device rules override the type:touch
-    # default above (last-write-wins on map_to_output). On older
-    # kernels both rules are no-ops because no input matches them.
-    input "0:0:ft5x06-top"    map_to_output DSI-2
-    input "0:0:ft5x06-bottom" map_to_output DSI-1
-
-    # The panels are physically portrait and displayed with transform 90.
-    # Rotate touch coordinates the same way or taps land offset/rotated from
-    # the rendered surface. Validated live on Thor 2026-05-11.
-    input "0:0:ft5x06-top"    calibration_matrix 0 -1 1 1 0 0
-    input "0:0:ft5x06-bottom" calibration_matrix 0 -1 1 1 0 0
+    ${sm8550.display.swayDeviceConfig}
 
     # ---- Interactive bindings (combined main-space, 2026-05-11) ----
 

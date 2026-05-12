@@ -4,11 +4,11 @@
 # normal audio policy lives here. Do not bind host /usr/share/alsa or host
 # PipeWire/PulseAudio sockets into the guest; that would make ROCKNIX the audio
 # policy owner again.
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
-  aynOdin2Ucm = pkgs.callPackage ../packages/audio/ayn-odin2-ucm { };
-  ucmPath = "${aynOdin2Ucm}/share/alsa/ucm2";
+  ucmPackage = config.rocknix.sm8550.audio.ucmPackage;
+  ucmPath = "${ucmPackage}/share/alsa/ucm2";
   audioServiceEnvironment = {
     XDG_RUNTIME_DIR = "/run/user/0";
     DBUS_SESSION_BUS_ADDRESS = "unix:path=/run/user/0/bus";
@@ -96,7 +96,7 @@ in
     pipewire
     wireplumber
     pulseaudio
-    aynOdin2Ucm
+    ucmPackage
     bluez
     bluez-tools
   ];

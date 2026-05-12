@@ -1,6 +1,6 @@
 # rocknix-nix-guest
 
-NixOS guest flake, emulator packages, and guest-side launch adapters for ROCKNIX SM8550/Thor main-space experiments.
+NixOS guest flake, emulator packages, and guest-side launch adapters for ROCKNIX SM8550 main-space experiments, with Odin 2/Thor as the validated default and Portal as an explicit device-profile target.
 
 This repo owns the reviewed Nix surface for the SM8550 guest path:
 
@@ -14,8 +14,8 @@ ROCKNIX remains the base OS, boot/recovery plane, and host-side nspawn importer/
 
 - `flake.nix` exposes aarch64 NixOS guest configurations, rootfs packages, and emulator package outputs.
 - `rocknix-guest.nix` is the stable default Layer 10b/12 SSH-capable guest import.
-- `modules/` contains reusable NixOS modules for the container baseline, SSH, display, audio, network, tooling, Steam, and lid policy.
-- `profiles/` composes modules into `minimal`, `ssh`, `main-space`, and `dev-env` profiles.
+- `modules/` contains reusable NixOS modules for the container baseline, SM8550 device policy, SSH, display, audio, network, tooling, Steam, and lid policy.
+- `profiles/` composes modules into `minimal`, `ssh`, `main-space`, and `dev-env` profiles; `profiles/devices/` holds small SM8550 per-device overrides.
 - `packages/cemu/` contains the direct ROCKNIX-informed Cemu derivation, manifest, patches, and SM8550 default settings.
 - `packages/steam/` contains guest-native Steam ARM64 bootstrap/seed/launch helpers, resources, and source manifest.
 - `launchers/` contains guest/host helper scripts used by the Layer 14 main-space Cemu validation path.
@@ -32,13 +32,17 @@ nix flake show --all-systems .
 Expected NixOS configurations:
 
 - `nixosConfigurations.rocknix-guest`
-- `nixosConfigurations.rocknix-guest-main-space`
+- `nixosConfigurations.rocknix-guest-main-space` (backward-compatible alias to Odin 2)
+- `nixosConfigurations.rocknix-guest-main-space-odin2`
+- `nixosConfigurations.rocknix-guest-main-space-portal`
 - `nixosConfigurations.rocknix-guest-dev-env`
 
 Rootfs package outputs are exposed for `x86_64-linux` and `aarch64-linux` hosts:
 
 ```sh
-nix build .#rootfs
+nix build .#rootfs          # alias to Odin 2 for current ROCKNIX packaging
+nix build .#rootfs-odin2
+nix build .#rootfs-portal
 sha256sum result/tarball/*.tar.*
 ```
 
@@ -60,7 +64,9 @@ Current package outputs:
 | `steam` | ROCKNIX-informed guest-native Steam ARM64 package helpers. |
 | `default` | Alias to `cemu`. |
 | `cemu-rocknix-package` | Transitional compatibility alias for existing ROCKNIX Layer 14 consumers. |
-| `rootfs` | Layer 10b guest rootfs tarball imported by ROCKNIX host tooling. |
+| `rootfs` | Layer 10b guest rootfs tarball imported by current ROCKNIX host tooling; aliases Odin 2. |
+| `rootfs-odin2` | Odin 2/Thor main-space rootfs tarball. |
+| `rootfs-portal` | Portal main-space rootfs tarball using the shared SM8550 defaults plus Portal profile overrides. |
 
 The rootfs tarball is imported by ROCKNIX host tooling under the configured Layer 10 guest root, normally `/storage/machines/rocknix-guest`.
 
@@ -89,6 +95,7 @@ Packages own emulator-generic or package-generic setup:
 Guest modules and launch adapters own device/session policy:
 
 - ROCKNIX `/storage` compatibility layout;
+- shared SM8550 defaults plus per-device overrides for display, input, audio UCM, and Cemu affinity;
 - SM8550 host CPU/GPU tuning helpers;
 - guest profile promotion/deploy scripts;
 - BOTW/live validation orchestration;

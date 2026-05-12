@@ -41,7 +41,7 @@
 # Lid open: reverse in opposite order, restoring snapshotted state from
 # /run/rocknix-lid/. swaymsg 'output * power on' last so the screen
 # wakes after the radios are back.
-{ pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 
 let
   # Kill switch lives in /storage/.guest/ which is bind-mounted RW from
@@ -55,6 +55,10 @@ let
   # To re-enable: ssh root@thor 'rm /storage/.guest/lid-suspend.disabled'
   killSwitch = "/storage/.guest/lid-suspend.disabled";
   stateDir = "/run/rocknix-lid";
+  input = config.rocknix.sm8550.input;
+  powerEventNames = lib.concatMapStringsSep " " lib.escapeShellArg input.powerEventNames;
+  volumeDownEventNames = lib.concatMapStringsSep " " lib.escapeShellArg input.volumeDownEventNames;
+  volumeUpLidEventNames = lib.concatMapStringsSep " " lib.escapeShellArg input.volumeUpLidEventNames;
 
   lidClose = pkgs.writeShellScript "rocknix-lid-close" ''
     set -u
@@ -282,6 +286,17 @@ let
       return 1
     }
 
+    find_event_by_names() {
+      for wanted in "$@"; do
+        device=$(find_event_by_name "$wanted" 2>/dev/null || true)
+        if [ -n "$device" ]; then
+          echo "$device"
+          return 0
+        fi
+      done
+      return 1
+    }
+
     watch_device() {
       label="$1"
       device="$2"
@@ -330,9 +345,9 @@ let
       done
     }
 
-    power_device=$(find_event_by_name pmic_pwrkey || true)
-    volume_down_device=$(find_event_by_name pmic_resin || true)
-    gpio_keys_device=$(find_event_by_name gpio-keys || true)
+    power_device=$(find_event_by_names ${powerEventNames} || true)
+    volume_down_device=$(find_event_by_names ${volumeDownEventNames} || true)
+    gpio_keys_device=$(find_event_by_names ${volumeUpLidEventNames} || true)
 
     watch_device power "$power_device" &
     watch_device volume-down "$volume_down_device" &
@@ -344,7 +359,7 @@ in
 {
   environment.systemPackages = with pkgs; [
     evtest
-    util-linux  # for rfkill
+    util-linux # for rfkill
     volumeControl
     powerToggle
   ];
