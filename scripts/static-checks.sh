@@ -163,6 +163,14 @@ grep -q 'services.tailscale' "$ROOT/modules/network.nix" \
   || fail "network module must make Tailscale guest-owned"
 grep -q 'useRoutingFeatures = "client"' "$ROOT/modules/network.nix" \
   || fail "guest Tailscale must use client routing features"
+grep -q 'extraSetFlags' "$ROOT/modules/network.nix" \
+  || fail "guest Tailscale must set container-safe client preferences"
+grep -q -- '--accept-dns=false' "$ROOT/modules/network.nix" \
+  || fail "guest Tailscale must not manage DNS without systemd-resolved"
+grep -q -- '--netfilter-mode=off' "$ROOT/modules/network.nix" \
+  || fail "guest Tailscale must avoid unsupported netfilter MARK rules"
+grep -q 'environment.etc."resolv.conf".source = "/run/NetworkManager/no-stub-resolv.conf"' "$ROOT/modules/network.nix" \
+  || fail "guest resolv.conf must point at NetworkManager's non-stub resolver file"
 grep -q 'AmbientCapabilities' "$ROOT/modules/network.nix" \
   || fail "guest Tailscale service must receive ambient network capabilities"
 grep -q 'CAP_NET_ADMIN' "$ROOT/modules/network.nix" \

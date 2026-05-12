@@ -46,9 +46,19 @@
 
   services.resolved.enable = false;
 
+  # The rootfs can carry a stale systemd-resolved stub resolv.conf from
+  # earlier experiments. Point /etc/resolv.conf at NetworkManager's real
+  # upstream resolver file so tailscaled does not try to talk to a disabled
+  # systemd-resolved service.
+  environment.etc."resolv.conf".source = "/run/NetworkManager/no-stub-resolv.conf";
+
   services.tailscale = {
     enable = true;
     useRoutingFeatures = "client";
+    extraSetFlags = [
+      "--accept-dns=false"
+      "--netfilter-mode=off"
+    ];
   };
 
   # systemd-nspawn gives interactive root enough capability to create a tun
