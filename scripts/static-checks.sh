@@ -175,6 +175,17 @@ grep -q 'CEMU_AFFINITY_MASK = sm8550.performance.cemuAffinityMask' "$ROOT/profil
   || fail "main-space session must consume the SM8550 device Cemu affinity default"
 grep -q 'default = "0xF8"' "$ROOT/modules/device.nix" \
   || fail "SM8550 device defaults must retain measured Odin2 Cemu affinity default"
+for profile in main-space dev-env; do
+  profile_path="$ROOT/profiles/$profile.nix"
+  grep -q 'bindsym Home mode "\$home_chord_mode"' "$profile_path" \
+    || fail "$profile profile must bind custom chords to Home"
+  grep -q 'bindsym XF86HomePage mode "\$home_chord_mode"' "$profile_path" \
+    || fail "$profile profile must accept XF86HomePage as a Home-chord prefix"
+  grep -q 'mode "\$home_chord_mode"' "$profile_path" \
+    || fail "$profile profile must define a Home chord mode"
+  ! grep -q 'set \$mod Mod4\|bindsym \$mod' "$profile_path" \
+    || fail "$profile profile must not use AYN/Mod4 for custom chords"
+done
 
 # Launch adapters.
 for launcher in \

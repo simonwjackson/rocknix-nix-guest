@@ -8,8 +8,8 @@
 # Run from inside the Layer 14 nspawn guest:
 #   /storage/.guest/games-launcher.sh
 #
-# Bind it to a sway hotkey for keyboard access:
-#   bindsym $mod+g exec /storage/.guest/games-launcher.sh
+# Bind it to the Home chord mode for keyboard access:
+#   bindsym g exec /storage/.guest/games-launcher.sh, mode "default"
 
 set -eu
 

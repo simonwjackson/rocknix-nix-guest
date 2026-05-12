@@ -123,7 +123,7 @@ This is the Layer 14 Cemu peelback baseline. Do not delete launcher behavior unt
 - Same-session host control (`/usr/bin/cemu`, ROCKNIX Mesa 26.0.6) matches once it is pinned to the same big-core affinity. A false ~25 FPS host result was traced to unpinned lowercase `cemu`, not to graphics-driver passthrough.
 - Product path remains Nix Cemu + Nix Vulkan loader + Nix Mesa/Freedreno. ROCKNIX Mesa passthrough is diagnostic-only.
 - `games-launcher.sh` renders all 7 BOTW profile entries on DSI-1,
-  full labels (FAST / NATIVE / POTATO suffixes), tap or `Mod+G`.
+  full labels (FAST / NATIVE / POTATO suffixes), tap or `Home` then `g`.
 
 ## Single-run headless validation
 

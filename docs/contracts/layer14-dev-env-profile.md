@@ -21,7 +21,7 @@ differences are:
 | Aspect | `main-space.nix` | `dev-env.nix` |
 |---|---|---|
 | Hostname | `rocknix-nix` | `rocknix-nix-dev` |
-| Sway config | Kiosk: only `seat hide_cursor`, output config, touch routing | Adds `$mod` keybinds (Mod+Return = foot, Mod+D = fuzzel, Mod+Shift+Q = kill, workspaces, focus/move, layout toggles), swaybar with clock + battery, `exec foot` to pre-spawn one terminal |
+| Sway config | Kiosk: only `seat hide_cursor`, output config, touch routing | Adds Home-prefixed chord bindings (Home then Return = foot, Home then d = fuzzel, Home then Shift+q = kill, workspaces, focus/move, layout toggles), swaybar with clock + battery, `exec foot` to pre-spawn one terminal |
 | Extra packages | None beyond `display.nix` defaults | `fuzzel`, `git`, `htop`, `btop` |
 | Kiosk service `path` | `dbus foot swaybg swaylock bashInteractive` | adds `fuzzel git coreutils sway` (sway is required so sway can `execlp("swaybar", ...)` — same PATH-lookup mechanism that the U1 fix solved for `sh`) |
 
@@ -105,20 +105,23 @@ generation symlink stays intact).
 
 | Key | Action |
 |---|---|
-| `$mod+Return` | Launch `foot` |
-| `$mod+d` | Launch `fuzzel` (search/run any binary on PATH) |
-| `$mod+Shift+q` | Kill focused window |
-| `$mod+Shift+e` | Exit sway (kiosk service then auto-restarts) |
-| `$mod+Shift+c` | Reload sway config in place |
-| `$mod+1..9` | Switch to workspace N |
-| `$mod+Shift+1..9` | Move window to workspace N |
-| `$mod+Left/Right/Up/Down` | Focus left/right/up/down |
-| `$mod+Shift+Left/...` | Move window left/right/up/down |
-| `$mod+f` | Toggle fullscreen |
-| `$mod+space` | Toggle floating |
-| `$mod+s` / `$mod+w` / `$mod+e` | Layout: stacking / tabbed / split-toggle |
+| `Home`, then `Return` | Launch `foot` |
+| `Home`, then `d` | Launch `fuzzel` (search/run any binary on PATH) |
+| `Home`, then `g` | Launch `/storage/.guest/games-launcher.sh` |
+| `Home`, then `Shift+q` | Kill focused window |
+| `Home`, then `Shift+e` | Exit sway (kiosk service then auto-restarts) |
+| `Home`, then `Shift+c` | Reload sway config in place |
+| `Home`, then `1..9` | Switch to workspace N |
+| `Home`, then `Shift+1..9` | Move window to workspace N |
+| `Home`, then `Left/Right/Up/Down` | Focus left/right/up/down |
+| `Home`, then `Shift+Left/...` | Move window left/right/up/down |
+| `Home`, then `f` | Toggle fullscreen |
+| `Home`, then `space` | Toggle floating |
+| `Home`, then `s` / `w` / `e` | Layout: stacking / tabbed / split-toggle |
 
-`$mod` is `Mod4` (Super / Windows key on a standard USB keyboard).
+Home is a transient sway mode prefix, not a modifier. Press `Escape`,
+`Home`, or `XF86HomePage` while in the chord mode to cancel back to
+normal input.
 
 ## Status bar
 

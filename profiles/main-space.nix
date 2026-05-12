@@ -13,9 +13,10 @@
 #
 # Combined-profile note (2026-05-11): main-space now bakes the interactive
 # bits formerly only available in profiles/dev-env.nix -- a bottom swaybar
-# with clock/battery, the standard sway keybinds (Mod+Return foot,
-# Mod+d fuzzel, Mod+g games-launcher, workspaces 1-9, focus/move/layout),
-# and `exec foot` so a cold boot lands the user on something interactive
+# with clock/battery, Home-prefixed sway chord bindings (Home then Return
+# for foot, Home then d for fuzzel, Home then g for games-launcher,
+# workspaces 1-9, focus/move/layout), and `exec foot` so a cold boot lands
+# the user on something interactive
 # instead of a black screen. The audio/Steam/Cemu module composition is
 # unchanged.
 { config, lib, pkgs, ... }:
@@ -142,7 +143,7 @@ in
     # only nix store package bin/ dirs, none containing `sh`.
     #
     # Interactive-profile additions (combined main-space):
-    #   - fuzzel: launcher invoked by `bindsym $mod+d exec fuzzel`.
+    #   - fuzzel: launcher invoked by the Home then d chord.
     #   - git: handy for in-session scratch work; matches dev-env parity.
     #   - coreutils: provides `date` and `cat` used by swayBarStatus.
     #   - sway: makes the `swaybar` helper reachable. Sway forks swaybar
@@ -208,8 +209,8 @@ in
 
   # Developer-shell packages baked in for parity with the former
   # dev-env profile. None of these are needed by sway itself; they
-  # exist so the interactive keybinds below (Mod+d fuzzel, etc.) and
-  # an interactive `foot` shell are useful out of the box.
+  # exist so the interactive Home-chord bindings below (Home then d for
+  # fuzzel, etc.) and an interactive `foot` shell are useful out of the box.
   environment.systemPackages = with pkgs; [
     fuzzel
     git
@@ -229,57 +230,70 @@ in
 
     # ---- Interactive bindings (combined main-space, 2026-05-11) ----
 
-    set $mod Mod4
+    # The AYN key is reserved for system/gamepad semantics. Home is a normal
+    # keysym rather than a modifier, so use it as a transient chord prefix:
+    # press Home, then the command key. Accept both common keysyms because the
+    # handheld Home key can surface as either Home or XF86HomePage.
+    set $home_chord_mode home-chord
+    bindsym Home mode "$home_chord_mode"
+    bindsym XF86HomePage mode "$home_chord_mode"
 
-    # Launch core apps
-    bindsym $mod+Return exec foot
-    bindsym $mod+d exec fuzzel
-    bindsym $mod+g exec /storage/.guest/games-launcher.sh
-    bindsym $mod+Shift+q kill
-    bindsym $mod+Shift+e exec swaymsg exit
+    mode "$home_chord_mode" {
+      # Launch core apps
+      bindsym Return exec foot, mode "default"
+      bindsym d exec fuzzel, mode "default"
+      bindsym g exec /storage/.guest/games-launcher.sh, mode "default"
+      bindsym Shift+q kill, mode "default"
+      bindsym Shift+e exec swaymsg exit, mode "default"
 
-    # Reload config in place (useful for live tweaking)
-    bindsym $mod+Shift+c reload
+      # Reload config in place (useful for live tweaking)
+      bindsym Shift+c reload, mode "default"
 
-    # Focus
-    bindsym $mod+Left  focus left
-    bindsym $mod+Down  focus down
-    bindsym $mod+Up    focus up
-    bindsym $mod+Right focus right
+      # Focus
+      bindsym Left  focus left, mode "default"
+      bindsym Down  focus down, mode "default"
+      bindsym Up    focus up, mode "default"
+      bindsym Right focus right, mode "default"
 
-    # Move window
-    bindsym $mod+Shift+Left  move left
-    bindsym $mod+Shift+Down  move down
-    bindsym $mod+Shift+Up    move up
-    bindsym $mod+Shift+Right move right
+      # Move window
+      bindsym Shift+Left  move left, mode "default"
+      bindsym Shift+Down  move down, mode "default"
+      bindsym Shift+Up    move up, mode "default"
+      bindsym Shift+Right move right, mode "default"
 
-    # Layout
-    bindsym $mod+f       fullscreen toggle
-    bindsym $mod+space   floating toggle
-    bindsym $mod+s       layout stacking
-    bindsym $mod+w       layout tabbed
-    bindsym $mod+e       layout toggle split
+      # Layout
+      bindsym f     fullscreen toggle, mode "default"
+      bindsym space floating toggle, mode "default"
+      bindsym s     layout stacking, mode "default"
+      bindsym w     layout tabbed, mode "default"
+      bindsym e     layout toggle split, mode "default"
 
-    # Workspaces
-    bindsym $mod+1 workspace number 1
-    bindsym $mod+2 workspace number 2
-    bindsym $mod+3 workspace number 3
-    bindsym $mod+4 workspace number 4
-    bindsym $mod+5 workspace number 5
-    bindsym $mod+6 workspace number 6
-    bindsym $mod+7 workspace number 7
-    bindsym $mod+8 workspace number 8
-    bindsym $mod+9 workspace number 9
+      # Workspaces
+      bindsym 1 workspace number 1, mode "default"
+      bindsym 2 workspace number 2, mode "default"
+      bindsym 3 workspace number 3, mode "default"
+      bindsym 4 workspace number 4, mode "default"
+      bindsym 5 workspace number 5, mode "default"
+      bindsym 6 workspace number 6, mode "default"
+      bindsym 7 workspace number 7, mode "default"
+      bindsym 8 workspace number 8, mode "default"
+      bindsym 9 workspace number 9, mode "default"
 
-    bindsym $mod+Shift+1 move container to workspace number 1
-    bindsym $mod+Shift+2 move container to workspace number 2
-    bindsym $mod+Shift+3 move container to workspace number 3
-    bindsym $mod+Shift+4 move container to workspace number 4
-    bindsym $mod+Shift+5 move container to workspace number 5
-    bindsym $mod+Shift+6 move container to workspace number 6
-    bindsym $mod+Shift+7 move container to workspace number 7
-    bindsym $mod+Shift+8 move container to workspace number 8
-    bindsym $mod+Shift+9 move container to workspace number 9
+      bindsym Shift+1 move container to workspace number 1, mode "default"
+      bindsym Shift+2 move container to workspace number 2, mode "default"
+      bindsym Shift+3 move container to workspace number 3, mode "default"
+      bindsym Shift+4 move container to workspace number 4, mode "default"
+      bindsym Shift+5 move container to workspace number 5, mode "default"
+      bindsym Shift+6 move container to workspace number 6, mode "default"
+      bindsym Shift+7 move container to workspace number 7, mode "default"
+      bindsym Shift+8 move container to workspace number 8, mode "default"
+      bindsym Shift+9 move container to workspace number 9, mode "default"
+
+      # Cancel / leave chord mode.
+      bindsym Escape mode "default"
+      bindsym Home mode "default"
+      bindsym XF86HomePage mode "default"
+    }
 
     # ---- Status bar ----
     #
@@ -303,7 +317,7 @@ in
     # ---- Auto-launch on session start ----
     #
     # One terminal so the user lands on something interactive instead
-    # of an empty dark screen. They can close it with Mod+Shift+Q.
+    # of an empty dark screen. They can close it with Home then Shift+Q.
     exec foot
   '';
 }
