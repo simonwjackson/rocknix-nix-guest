@@ -51,6 +51,15 @@
     useRoutingFeatures = "client";
   };
 
+  # systemd-nspawn gives interactive root enough capability to create a tun
+  # device, but systemd-launched services inside the container do not inherit
+  # those caps ambiently. tailscaled needs them to create tailscale0 and open
+  # its UDP socket from the guest-owned network namespace.
+  systemd.services.tailscaled.serviceConfig.AmbientCapabilities = [
+    "CAP_NET_ADMIN"
+    "CAP_NET_RAW"
+  ];
+
   environment.systemPackages = with pkgs; [
     iw
     nftables

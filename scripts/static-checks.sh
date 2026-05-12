@@ -163,6 +163,12 @@ grep -q 'services.tailscale' "$ROOT/modules/network.nix" \
   || fail "network module must make Tailscale guest-owned"
 grep -q 'useRoutingFeatures = "client"' "$ROOT/modules/network.nix" \
   || fail "guest Tailscale must use client routing features"
+grep -q 'AmbientCapabilities' "$ROOT/modules/network.nix" \
+  || fail "guest Tailscale service must receive ambient network capabilities"
+grep -q 'CAP_NET_ADMIN' "$ROOT/modules/network.nix" \
+  || fail "guest Tailscale service must be able to create tailscale0"
+grep -q 'CAP_NET_RAW' "$ROOT/modules/network.nix" \
+  || fail "guest Tailscale service must be able to open raw network sockets"
 grep -q 'tailscale' "$ROOT/modules/network.nix" \
   || fail "network module must include the tailscale CLI package"
 grep -q 'time.timeZone' "$ROOT/profiles/main-space.nix" \
