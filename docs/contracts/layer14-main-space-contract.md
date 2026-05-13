@@ -140,8 +140,8 @@ Korri packaging logic in the ROCKNIX guest repo:
 
 - `korri.nixosModules.korri-frontend` is imported into main-space.
 - `services.korri.enable = true` installs the configured package.
-- `services.korri.package = korri.packages.${targetSystem}.korri-desktop-odin`
-  selects the Odin package variant that owns Korri's build-time frontend
+- `services.korri.package = korri.packages.${targetSystem}.korri-desktop-device`
+  selects the device package variant that owns Korri's build-time frontend
   configuration, including the native bridge URL.
 - The Sway kiosk service PATH includes `config.services.korri.package` so Sway
   keybinds can launch the configured package binary.

@@ -74,7 +74,7 @@ The rootfs tarball is imported by ROCKNIX host tooling under the configured Laye
 
 ## Local Korri development
 
-The committed `korri` flake input in `flake.nix` is the source of truth. Do not replace it with a local path for development. The main-space profile imports `korri.nixosModules.korri-frontend`, enables `services.korri`, and selects Korri's `korri-desktop-odin` package variant.
+The committed `korri` flake input in `flake.nix` is the source of truth. Do not replace it with a local path for development. The main-space profile imports `korri.nixosModules.korri-frontend`, enables `services.korri`, and selects Korri's `korri-desktop-device` package variant.
 
 When iterating against a local Korri checkout, set `KORRI_INPUT` and use a recipe or pass the override to Nix directly:
 
@@ -123,7 +123,7 @@ Guest modules and launch adapters own device/session policy:
 ```nix
 services.korri = {
   enable = true;
-  package = korri.packages.${targetSystem}.korri-desktop-odin;
+  package = korri.packages.${targetSystem}.korri-desktop-device;
 };
 
 systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];

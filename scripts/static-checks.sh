@@ -55,8 +55,8 @@ grep -q 'services.korri = {' "$ROOT/flake.nix" \
   || fail "main-space guest must configure Korri through the Korri-owned module"
 grep -A4 'services.korri = {' "$ROOT/flake.nix" | grep -q 'enable = true;' \
   || fail "main-space guest must enable Korri through services.korri"
-grep -A4 'services.korri = {' "$ROOT/flake.nix" | grep -q 'korri.packages.${targetSystem}.korri-desktop-odin' \
-  || fail "main-space guest must use Korri's Odin desktop package variant"
+grep -A4 'services.korri = {' "$ROOT/flake.nix" | grep -q 'korri.packages.${targetSystem}.korri-desktop-device' \
+  || fail "main-space guest must use Korri's device desktop package variant"
 grep -F -q 'systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];' "$ROOT/flake.nix" \
   || fail "sway kiosk service PATH must include the configured Korri package"
 grep -q 'rocknix-guest-main-space-thor' "$ROOT/flake.nix" \
@@ -250,7 +250,7 @@ grep -q 'CEMU_BIOS_ROOT = "/storage/roms/bios/cemu"' "$ROOT/profiles/main-space.
   || fail "main-space session must own temporary Cemu BIOS compatibility root"
 grep -q 'CEMU_AFFINITY_MASK = sm8550.performance.cemuAffinityMask' "$ROOT/profiles/main-space.nix" \
   || fail "main-space session must consume the SM8550 device Cemu affinity default"
-grep -q 'bindsym k exec korri-desktop-odin' "$ROOT/profiles/main-space.nix" \
+grep -q 'bindsym k exec korri-desktop-device' "$ROOT/profiles/main-space.nix" \
   || fail "main-space Home chord must expose Korri launch"
 grep -q 'default = "0xF8"' "$ROOT/modules/device.nix" \
   || fail "SM8550 device defaults must retain measured Odin2 Cemu affinity default"
