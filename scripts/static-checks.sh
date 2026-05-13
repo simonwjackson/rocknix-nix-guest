@@ -129,6 +129,8 @@ grep -q 'hardware.bluetooth' "$ROOT/modules/audio.nix" \
   || fail "audio module must enable bluetooth"
 grep -q 'powerOnBoot = true' "$ROOT/modules/audio.nix" \
   || fail "guest Bluetooth must power on at boot for trusted HID reconnect"
+grep -q 'systemd.services.bluetooth.wantedBy = \[ "multi-user.target" \]' "$ROOT/modules/audio.nix" \
+  || fail "guest Bluetooth service must start during main-space boot"
 grep -q 'systemd.services.rocknix-pipewire' "$ROOT/modules/audio.nix" \
   || fail "audio module must configure a root-scoped PipeWire service for the kiosk session"
 grep -q 'systemd.services.rocknix-pipewire-pulse' "$ROOT/modules/audio.nix" \

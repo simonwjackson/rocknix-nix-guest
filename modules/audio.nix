@@ -45,6 +45,11 @@ in
     };
   };
 
+  # NixOS' bluez unit is WantedBy=bluetooth.target, but our nspawn main-space
+  # boot does not otherwise pull bluetooth.target into the transaction. Start
+  # bluetoothd as part of the guest boot so paired HID devices reconnect.
+  systemd.services.bluetooth.wantedBy = [ "multi-user.target" ];
+
   systemd.services.rocknix-pipewire = {
     description = "ROCKNIX Layer 14 root PipeWire service";
     wantedBy = [ "multi-user.target" ];
