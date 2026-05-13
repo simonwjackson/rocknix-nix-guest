@@ -17,7 +17,7 @@
 # product/development tailnet identity. The nspawn unit binds /dev/net/tun
 # and the guest runs in the shared netns, so tailscaled can create the
 # tailnet interface from inside the guest while preserving host minimalism.
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   networking.networkmanager = {
@@ -58,6 +58,7 @@
     extraSetFlags = [
       "--accept-dns=false"
       "--netfilter-mode=off"
+      "--hostname=${config.networking.hostName}"
     ];
   };
 

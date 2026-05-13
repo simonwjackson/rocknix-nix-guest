@@ -1,8 +1,8 @@
 # Hardware-validated AYN Thor profile.
-{ ... }:
+{ lib, ... }:
 
 {
-  networking.hostName = "bandai";
+  networking.hostName = lib.mkForce "bandai";
 
   rocknix.sm8550.deviceId = "thor";
 }

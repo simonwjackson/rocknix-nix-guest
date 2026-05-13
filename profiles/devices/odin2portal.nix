@@ -4,10 +4,10 @@
 # Thor is display topology/orientation: Portal exposes one 1080x1920 DSI panel
 # as DSI-1, and the Thor transform=90 default renders upside down. Use
 # transform=270 to present the panel in handheld landscape orientation.
-{ ... }:
+{ lib, ... }:
 
 {
-  networking.hostName = "sobo";
+  networking.hostName = lib.mkForce "sobo";
 
   rocknix.sm8550 = {
     deviceId = "odin2portal";
