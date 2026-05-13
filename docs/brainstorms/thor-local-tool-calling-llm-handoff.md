@@ -71,6 +71,56 @@ Recommended validation approach:
 - Run a bake-off of Qwen3 4B, Phi-4-mini 3.8B, and Llama 3.2 3B against 30–50 real frontend commands.
 - Choose based on clean valid tool calls and latency, not chat quality.
 
+Follow-up: image recognition / vision support:
+
+- User asked about image recognition for the same Thor/NixOS/emulator-frontend context.
+- Recommendation: treat image recognition as a **separate perception module**, not as the same model that does tool-calling.
+- Best default local vision candidate: **Qwen2.5-VL 3B** / `qwen2.5vl:3b`.
+  - Good edge-AI fit.
+  - Handles screenshots, OCR-like tasks, visual Q&A, localization/bounding boxes, and structured JSON reasonably well.
+  - Small enough for Thor 16GB.
+- Secondary candidate: **Gemma 3 4B** / `gemma3:4b`.
+  - Good general image understanding; test JSON/tool-adjacent reliability.
+- Heavier candidate: **Qwen2.5-VL 7B** only if 3B misses too much and latency is acceptable.
+- Avoid relying on native vision-model tool-calling. Vision+tools support is inconsistent; safer pattern is:
+
+```text
+screenshot / box art / camera image
+        ↓
+Qwen2.5-VL 3B
+        ↓
+structured observation JSON
+        ↓
+Qwen3 4B or Phi-4-mini tool router
+        ↓
+validated frontend action/tool call
+```
+
+Example structured vision output:
+
+```json
+{
+  "screen_type": "emulator_pause_menu",
+  "visible_text": ["Resume", "Restart", "Save State", "Load State"],
+  "game_guess": "Chrono Trigger",
+  "confidence": 0.82,
+  "suggested_intent": "resume_game"
+}
+```
+
+Potential emulator-frontend vision use cases:
+
+- Recognize box art / screenshots: use CLIP/SigLIP embeddings first, VLM fallback.
+- Read visible menu text: OCR or Qwen2.5-VL.
+- Understand current screen: screenshot → Qwen2.5-VL → structured observation.
+- Identify a game from box art/screenshot: image embedding search + metadata lookup.
+- Explain controls or next action from screen state: VLM observation → text/tool router.
+
+Vision-model bake-off additions:
+
+- Test `qwen2.5vl:3b`, `gemma3:4b`, and optionally `qwen2.5vl:7b`.
+- Score on structured JSON validity, OCR/menu-text accuracy, screen-state classification, image-to-game identification, and latency.
+
 ## Current repo/project state
 
 Current working directory during this session was:
@@ -86,7 +136,9 @@ Auto-context showed untracked local markdown artifacts in this repo:
 - `rebase-plan-learnings.md`
 - `rebase-plan-repo-research.md`
 
-No files were changed in the repo during this handoff, except this temporary handoff file.
+The handoff file was moved into the adjacent repo at:
+
+- `../rocknix-nix-guest/docs/brainstorms/thor-local-tool-calling-llm-handoff.md`
 
 ## Suggested next-session skills
 
