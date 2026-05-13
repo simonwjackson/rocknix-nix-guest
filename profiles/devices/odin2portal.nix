@@ -7,6 +7,8 @@
 { ... }:
 
 {
+  networking.hostName = "sobo";
+
   rocknix.sm8550 = {
     deviceId = "odin2portal";
 
