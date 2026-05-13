@@ -123,6 +123,10 @@ grep -q 'PlaybackPCM "hw:${CardId},0"' "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/
   || fail "AYN Odin2 UCM package must include the SM8550 card-name symlink"
 [ -L "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/conf.d/sm8550/ayn-AYNOdin2-.conf" ] \
   || fail "AYN Odin2 UCM package must include the EFI-compatible card-name symlink"
+[ -L "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/conf.d/sm8550/AYN-Thor.conf" ] \
+  || fail "AYN Odin2 UCM package must include Thor long-name card symlink"
+[ -L "$ROOT/packages/audio/ayn-odin2-ucm/ucm2/conf.d/sm8550/AYNThor.conf" ] \
+  || fail "AYN Odin2 UCM package must include Thor card-id symlink"
 ! grep -q 'module-alsa-sink\|sink_name=thor_hw0\|rocknix-audio-alsa-sink' "$ROOT/modules/audio.nix" "$ROOT/modules/lid.nix" \
   || fail "audio path must not depend on the diagnostic thor_hw0 module-alsa-sink workaround"
 grep -q 'rocknix-hardware-button-handler' "$ROOT/modules/lid.nix" \
