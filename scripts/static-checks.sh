@@ -127,6 +127,8 @@ grep -q 'services.dbus' "$ROOT/modules/audio.nix" \
   || fail "audio module must enable D-Bus"
 grep -q 'hardware.bluetooth' "$ROOT/modules/audio.nix" \
   || fail "audio module must enable bluetooth"
+grep -q 'powerOnBoot = true' "$ROOT/modules/audio.nix" \
+  || fail "guest Bluetooth must power on at boot for trusted HID reconnect"
 grep -q 'systemd.services.rocknix-pipewire' "$ROOT/modules/audio.nix" \
   || fail "audio module must configure a root-scoped PipeWire service for the kiosk session"
 grep -q 'systemd.services.rocknix-pipewire-pulse' "$ROOT/modules/audio.nix" \

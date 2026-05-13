@@ -33,7 +33,10 @@ in
 
   hardware.bluetooth = {
     enable = true;
-    powerOnBoot = false;
+    # The guest owns Bluetooth HID pairing/connection in main-space mode.
+    # Power the controller at boot so trusted mice/keyboards reconnect without
+    # a host-side bluetoothd or manual bluetoothctl power-on.
+    powerOnBoot = true;
     settings = {
       General = {
         FastConnectable = "true";
