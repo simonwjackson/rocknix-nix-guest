@@ -6,6 +6,7 @@
 #   - ssh (Layer 12 opt-in SSH on port 2222)
 #   - display (sway + Mesa freedreno/turnip)
 #   - audio (pipewire + wireplumber + bluez + dbus)
+#   - input (guest-owned InputPlumber + SM8550 maps)
 #   - network (NetworkManager + nftables firewall, no resolvconf)
 #
 # Used by THIN_HOST=yes builds via nixosConfigurations.rocknix-guest-main-space
@@ -19,7 +20,12 @@
 # the user on something interactive
 # instead of a black screen. The audio/Steam/Cemu module composition is
 # unchanged.
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   # Status line script for swaybar. Lives as a separate file rather
@@ -50,6 +56,7 @@ in
     ../modules/ssh.nix
     ../modules/display.nix
     ../modules/audio.nix
+    ../modules/input.nix
     ../modules/network.nix
     ../modules/lid.nix
     ../modules/steam.nix
@@ -121,7 +128,10 @@ in
     # multi-user.target; ordering it after the target lets the target complete
     # without reliably launching the compositor during boot. Order only after
     # the concrete prerequisites it actually needs.
-    after = [ "systemd-user-sessions.service" "rocknix-session-dbus.service" ];
+    after = [
+      "systemd-user-sessions.service"
+      "rocknix-session-dbus.service"
+    ];
     requires = [ "rocknix-session-dbus.service" ];
 
     # sway's wrapper invokes dbus-run-session which spawns dbus-daemon.

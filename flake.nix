@@ -9,12 +9,22 @@
     nixpkgs-sdl2-classic.url = "github:NixOS/nixpkgs/nixos-24.11";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-sdl2-classic, korri }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      nixpkgs-sdl2-classic,
+      korri,
+    }:
     let
       targetSystem = "aarch64-linux";
-      hostSystems = [ "x86_64-linux" "aarch64-linux" ];
+      hostSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       forAllHostSystems = nixpkgs.lib.genAttrs hostSystems;
-      packageSetFor = system:
+      packageSetFor =
+        system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
           pkgsSdl2Classic = nixpkgs-sdl2-classic.legacyPackages.${system};
@@ -23,12 +33,14 @@
           };
           steam = pkgs.callPackage ./packages/steam/package.nix { };
           ayn-odin2-ucm = pkgs.callPackage ./packages/audio/ayn-odin2-ucm { };
+          inputplumber = pkgs.callPackage ./packages/inputplumber { };
         in
         {
           default = cemu;
           cemu = cemu;
           steam = steam;
           ayn-odin2-ucm = ayn-odin2-ucm;
+          inputplumber = inputplumber;
           # Compatibility alias for existing ROCKNIX Layer 14 scripts/docs.
           cemu-rocknix-package = cemu;
         };
@@ -36,31 +48,36 @@
         system = targetSystem;
         modules = [ ./rocknix-guest.nix ];
       };
-      mainSpaceConfigurationFor = deviceProfile: nixpkgs.lib.nixosSystem {
-        system = targetSystem;
-        modules = [
-          korri.nixosModules.korri-frontend
-          ./profiles/main-space.nix
-          deviceProfile
-          ({ config, ... }: {
-            services.korri = {
-              enable = true;
-              package = korri.packages.${targetSystem}.korri-desktop-odin;
-            };
+      mainSpaceConfigurationFor =
+        deviceProfile:
+        nixpkgs.lib.nixosSystem {
+          system = targetSystem;
+          modules = [
+            korri.nixosModules.korri-frontend
+            ./profiles/main-space.nix
+            deviceProfile
+            (
+              { config, ... }:
+              {
+                services.korri = {
+                  enable = true;
+                  package = korri.packages.${targetSystem}.korri-desktop-odin;
+                };
 
-            systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];
+                systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];
 
-            # Keep the emulator package source of truth in this guest flake so
-            # profile composition, package derivations, and launch adapters are
-            # reviewed and versioned together.
-            environment.systemPackages = [
-              (packageSetFor targetSystem).cemu
-              (packageSetFor targetSystem).steam
-              (packageSetFor targetSystem).ayn-odin2-ucm
-            ];
-          })
-        ];
-      };
+                # Keep the emulator package source of truth in this guest flake so
+                # profile composition, package derivations, and launch adapters are
+                # reviewed and versioned together.
+                environment.systemPackages = [
+                  (packageSetFor targetSystem).cemu
+                  (packageSetFor targetSystem).steam
+                  (packageSetFor targetSystem).ayn-odin2-ucm
+                ];
+              }
+            )
+          ];
+        };
       mainSpaceThorConfiguration = mainSpaceConfigurationFor ./profiles/devices/thor.nix;
       mainSpaceOdin2PortalConfiguration = mainSpaceConfigurationFor ./profiles/devices/odin2portal.nix;
       # Backward-compatible alias: the production packaged rootfs remains the
@@ -76,7 +93,8 @@
       # minimal rocknix-guest configuration remains exposed for evaluation,
       # but the host autostart path must stage main-space or the device boots
       # to a container with no compositor.
-      mkRootfs = hostSystem: configurationToPackage:
+      mkRootfs =
+        hostSystem: configurationToPackage:
         let
           pkgs = import nixpkgs { system = hostSystem; };
           toplevel = configurationToPackage.config.system.build.toplevel;
@@ -86,32 +104,37 @@
         in
         pkgs.runCommand "rocknix-layer10b-guest-rootfs"
           {
-            nativeBuildInputs = [ pkgs.coreutils pkgs.gnutar pkgs.zstd ];
-          } ''
-          mkdir -p root/nix/store root/sbin root/usr/bin root/tmp root/proc root/sys root/dev root/run root/etc root/var root/var/lib $out/tarball
-          chmod 1777 root/tmp
-          while IFS= read -r store_path; do
-            cp -a "$store_path" root/nix/store/
-          done < ${closure}/store-paths
-          ln -s ${toplevel}/init root/init
-          ln -s ${toplevel}/init root/sbin/init
-          ln -s /run/current-system/sw/bin/nix root/usr/bin/nix
-          cp -a ${toplevel}/etc/. root/etc/
-          chmod -R u+w root/etc
-          if [ -e root/etc/static/ssh/sshd_config ]; then
-            mkdir -p root/etc/ssh
-            rm -f root/etc/ssh/sshd_config
-            cp -L root/etc/static/ssh/sshd_config root/etc/ssh/sshd_config
-            chmod u+w root/etc/ssh/sshd_config
-          fi
-          mkdir -p root/etc/ssh/authorized_keys.d
-          rm -f root/etc/ssh/authorized_keys.d/root
-          : > root/etc/ssh/authorized_keys.d/root
-          chmod 600 root/etc/ssh/authorized_keys.d/root
-          tar --sort=name --numeric-owner --owner=0 --group=0 --zstd \
-            -cf $out/tarball/rocknix-layer10b-guest-rootfs-aarch64-linux.tar.zst \
-            -C root .
-        '';
+            nativeBuildInputs = [
+              pkgs.coreutils
+              pkgs.gnutar
+              pkgs.zstd
+            ];
+          }
+          ''
+            mkdir -p root/nix/store root/sbin root/usr/bin root/tmp root/proc root/sys root/dev root/run root/etc root/var root/var/lib $out/tarball
+            chmod 1777 root/tmp
+            while IFS= read -r store_path; do
+              cp -a "$store_path" root/nix/store/
+            done < ${closure}/store-paths
+            ln -s ${toplevel}/init root/init
+            ln -s ${toplevel}/init root/sbin/init
+            ln -s /run/current-system/sw/bin/nix root/usr/bin/nix
+            cp -a ${toplevel}/etc/. root/etc/
+            chmod -R u+w root/etc
+            if [ -e root/etc/static/ssh/sshd_config ]; then
+              mkdir -p root/etc/ssh
+              rm -f root/etc/ssh/sshd_config
+              cp -L root/etc/static/ssh/sshd_config root/etc/ssh/sshd_config
+              chmod u+w root/etc/ssh/sshd_config
+            fi
+            mkdir -p root/etc/ssh/authorized_keys.d
+            rm -f root/etc/ssh/authorized_keys.d/root
+            : > root/etc/ssh/authorized_keys.d/root
+            chmod 600 root/etc/ssh/authorized_keys.d/root
+            tar --sort=name --numeric-owner --owner=0 --group=0 --zstd \
+              -cf $out/tarball/rocknix-layer10b-guest-rootfs-aarch64-linux.tar.zst \
+              -C root .
+          '';
     in
     {
       nixosConfigurations.rocknix-guest = configuration;
@@ -119,29 +142,38 @@
       nixosConfigurations.rocknix-guest-main-space-thor = mainSpaceThorConfiguration;
       nixosConfigurations.rocknix-guest-main-space-odin2portal = mainSpaceOdin2PortalConfiguration;
       nixosConfigurations.rocknix-guest-dev-env = devEnvConfiguration;
-      packages = forAllHostSystems (hostSystem:
+      packages = forAllHostSystems (
+        hostSystem:
         let
           rootfsThor = mkRootfs hostSystem mainSpaceThorConfiguration;
           rootfsOdin2Portal = mkRootfs hostSystem mainSpaceOdin2PortalConfiguration;
           rootfs = rootfsThor;
         in
-        (packageSetFor hostSystem) // {
+        (packageSetFor hostSystem)
+        // {
           inherit rootfs;
           "rootfs-thor" = rootfsThor;
           "rootfs-odin2portal" = rootfsOdin2Portal;
-        });
-      checks = forAllHostSystems (system:
-        let pkgs = nixpkgs.legacyPackages.${system};
-        in {
-          static = pkgs.runCommand "rocknix-nix-guest-static-checks"
-            {
-              nativeBuildInputs = [ pkgs.shellcheck ];
-            } ''
-            cd ${self}
-            ${pkgs.bash}/bin/bash scripts/static-checks.sh
-            touch $out
-          '';
-        });
+        }
+      );
+      checks = forAllHostSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
+          static =
+            pkgs.runCommand "rocknix-nix-guest-static-checks"
+              {
+                nativeBuildInputs = [ pkgs.shellcheck ];
+              }
+              ''
+                cd ${self}
+                ${pkgs.bash}/bin/bash scripts/static-checks.sh
+                touch $out
+              '';
+        }
+      );
       formatter = forAllHostSystems (system: nixpkgs.legacyPackages.${system}.nixpkgs-fmt);
     };
 }

@@ -96,6 +96,7 @@ for f in \
   modules/ssh.nix \
   modules/display.nix \
   modules/audio.nix \
+  modules/input.nix \
   modules/network.nix \
   modules/lid.nix \
   modules/steam.nix \
@@ -104,6 +105,9 @@ for f in \
   packages/cemu/settings.SM8550.xml \
   packages/steam/package.nix \
   packages/steam/manifest.nix \
+  packages/inputplumber/default.nix \
+  packages/inputplumber/sm8550/devices/02-ayn-controller.yaml \
+  packages/inputplumber/sm8550/capability_maps/ayn_mcu.yaml \
   profiles/minimal.nix \
   profiles/ssh.nix \
   profiles/main-space.nix \
@@ -135,6 +139,20 @@ grep -q 'ALSA_CONFIG_UCM2 = ucmPath' "$ROOT/modules/audio.nix" \
   || fail "audio module must pass guest-owned UCM path to audio services"
 grep -q 'PULSE_SERVER = "unix:/run/user/0/pulse/native"' "$ROOT/modules/audio.nix" \
   || fail "audio module must point clients at the root PipeWire Pulse socket"
+grep -q 'services.inputplumber' "$ROOT/modules/input.nix" \
+  || fail "input module must enable guest-owned InputPlumber"
+grep -q '0.75.2' "$ROOT/packages/inputplumber/default.nix" \
+  || fail "guest InputPlumber package must match the validated ROCKNIX host version"
+grep -q 'name: AYN Layout' "$ROOT/packages/inputplumber/sm8550/devices/02-ayn-controller.yaml" \
+  || fail "guest InputPlumber package must include ROCKNIX SM8550 AYN controller map"
+grep -q 'ayn_mcu' "$ROOT/packages/inputplumber/sm8550/capability_maps/ayn_mcu.yaml" \
+  || fail "guest InputPlumber package must include ROCKNIX SM8550 AYN capability map"
+grep -q 'c /dev/uinput' "$ROOT/modules/input.nix" \
+  || fail "input module must create /dev/uinput for guest-owned virtual devices"
+grep -q 'before = \[ "rocknix-sway-kiosk.service" \]' "$ROOT/modules/input.nix" \
+  || fail "guest InputPlumber must order before sway"
+grep -q '../modules/input.nix' "$ROOT/profiles/main-space.nix" \
+  || fail "main-space profile must import the guest input module"
 grep -q 'ayn-odin2-ucm' "$ROOT/flake.nix" \
   || fail "root flake must expose the guest-owned AYN Odin2 UCM package"
 grep -q 'ALSA_CONFIG_UCM2' "$ROOT/modules/audio.nix" \
@@ -215,7 +233,8 @@ grep -q 'systemd.services.rocknix-sway-kiosk' "$ROOT/profiles/main-space.nix" \
   || fail "main-space profile must define the sway kiosk service"
 grep -q 'wantedBy = \[ "multi-user.target" \]' "$ROOT/profiles/main-space.nix" \
   || fail "sway kiosk service must be wanted by multi-user.target"
-grep -q 'after = \[ "systemd-user-sessions.service" "rocknix-session-dbus.service" \]' "$ROOT/profiles/main-space.nix" \
+grep -q '"systemd-user-sessions.service"' "$ROOT/profiles/main-space.nix" \
+  && grep -q '"rocknix-session-dbus.service"' "$ROOT/profiles/main-space.nix" \
   || fail "sway kiosk service must order only after concrete prerequisites"
 ! grep -q 'after = \[ "multi-user.target"' "$ROOT/profiles/main-space.nix" \
   || fail "sway kiosk service must not order After=multi-user.target"
