@@ -61,7 +61,7 @@
               {
                 services.korri = {
                   enable = true;
-                  package = korri.packages.${targetSystem}.korri-desktop-odin;
+                  package = korri.packages.${targetSystem}.korri-desktop-device;
                 };
 
                 systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];
