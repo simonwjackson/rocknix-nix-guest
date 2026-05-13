@@ -6,6 +6,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 [ -f "$ROOT/flake.nix" ] || fail "missing flake.nix"
 [ -f "$ROOT/flake.lock" ] || fail "missing flake.lock"
+[ -f "$ROOT/justfile" ] || fail "missing justfile"
 [ -f "$ROOT/rocknix-guest.nix" ] || fail "missing default guest config"
 [ -d "$ROOT/modules" ] || fail "missing modules directory"
 [ -d "$ROOT/profiles" ] || fail "missing profiles directory"
@@ -19,6 +20,21 @@ grep -q 'x86_64-linux' "$ROOT/flake.nix" \
   || fail "guest flake must expose x86_64 host build package"
 grep -q 'nixos-25.11' "$ROOT/flake.nix" \
   || fail "guest flake must pin the nixpkgs release input"
+grep -q 'korri.url = "github:' "$ROOT/flake.nix" \
+  || fail "guest flake must keep Korri as a remote flake input"
+! grep -q 'korri.url = "path:' "$ROOT/flake.nix" \
+  || fail "guest flake must not commit a local Korri path input"
+grep -q 'KORRI_INPUT' "$ROOT/justfile" \
+  || fail "justfile must preserve the local Korri override workflow"
+grep -q 'KORRI_INPUT' "$ROOT/README.md" \
+  || fail "README must document local Korri override workflow"
+grep -q 'korri.nixosModules.korri-frontend' "$ROOT/README.md" \
+  || fail "README must document Korri module consumption"
+grep -q 'Home then `k`' "$ROOT/README.md" \
+  || fail "README must document the Korri launch chord"
+! grep -R 'services\.korri\.nativeBridgeUrl\|nativeBridgeUrl = ' "$ROOT/flake.nix" "$ROOT/profiles" "$ROOT/modules" "$ROOT/README.md" >/tmp/rocknix-nix-guest-korri-bridge-grep.$$ \
+  || { cat /tmp/rocknix-nix-guest-korri-bridge-grep.$$ >&2; rm -f /tmp/rocknix-nix-guest-korri-bridge-grep.$$; fail "ROCKNIX must not own Korri nativeBridgeUrl configuration"; }
+rm -f /tmp/rocknix-nix-guest-korri-bridge-grep.$$
 grep -q 'nixpkgs-sdl2-classic.url = "github:NixOS/nixpkgs/nixos-24.11"' "$ROOT/flake.nix" \
   || fail "Cemu package must retain narrow classic SDL2 input"
 grep -q 'cemu = pkgs.callPackage ./packages/cemu/package.nix' "$ROOT/flake.nix" \
@@ -33,6 +49,16 @@ grep -q '(packageSetFor targetSystem).cemu' "$ROOT/flake.nix" \
   || fail "main-space guest must install in-repo Cemu package"
 grep -q '(packageSetFor targetSystem).steam' "$ROOT/flake.nix" \
   || fail "main-space guest must install in-repo Steam package helpers"
+grep -q 'korri.nixosModules.korri-frontend' "$ROOT/flake.nix" \
+  || fail "main-space guest must import the Korri-owned frontend NixOS module"
+grep -q 'services.korri = {' "$ROOT/flake.nix" \
+  || fail "main-space guest must configure Korri through the Korri-owned module"
+grep -A4 'services.korri = {' "$ROOT/flake.nix" | grep -q 'enable = true;' \
+  || fail "main-space guest must enable Korri through services.korri"
+grep -A4 'services.korri = {' "$ROOT/flake.nix" | grep -q 'korri.packages.${targetSystem}.korri-desktop-odin' \
+  || fail "main-space guest must use Korri's Odin desktop package variant"
+grep -F -q 'systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];' "$ROOT/flake.nix" \
+  || fail "sway kiosk service PATH must include the configured Korri package"
 grep -q 'rocknix-guest-main-space-thor' "$ROOT/flake.nix" \
   || fail "guest flake must expose a Thor main-space configuration"
 grep -q 'rocknix-guest-main-space-odin2portal' "$ROOT/flake.nix" \
@@ -197,6 +223,8 @@ grep -q 'CEMU_BIOS_ROOT = "/storage/roms/bios/cemu"' "$ROOT/profiles/main-space.
   || fail "main-space session must own temporary Cemu BIOS compatibility root"
 grep -q 'CEMU_AFFINITY_MASK = sm8550.performance.cemuAffinityMask' "$ROOT/profiles/main-space.nix" \
   || fail "main-space session must consume the SM8550 device Cemu affinity default"
+grep -q 'bindsym k exec korri-desktop-odin' "$ROOT/profiles/main-space.nix" \
+  || fail "main-space Home chord must expose Korri launch"
 grep -q 'default = "0xF8"' "$ROOT/modules/device.nix" \
   || fail "SM8550 device defaults must retain measured Odin2 Cemu affinity default"
 for profile in main-space dev-env; do
@@ -396,6 +424,14 @@ grep -q 'rocknix-guest-revision' "${L14_CONTRACT}" \
   || fail "Layer 14 contract must document guest revision markers (U10)"
 grep -q 'SM8550' "${L14_CONTRACT}" \
   || fail "Layer 14 contract must document SM8550-only scope (U10)"
+grep -q 'Korri frontend consumption' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document Korri frontend consumption"
+grep -q 'korri.nixosModules.korri-frontend' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document the Korri-owned NixOS module import"
+grep -q 'Home then `k`' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document the Korri launch chord"
+grep -q 'Do not add a ROCKNIX-owned Korri package' "${L14_CONTRACT}" \
+  || fail "Layer 14 contract must document the Korri ownership boundary"
 
 
 printf 'static checks passed\n'

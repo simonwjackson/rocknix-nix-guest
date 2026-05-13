@@ -5,7 +5,8 @@
 SM8550 ROCKNIX boots a NixOS guest as the primary product experience while
 ROCKNIX remains the minimal host substrate for boot, update, rollback, and
 explicit recovery. The guest owns product UX: display, audio, input handling,
-networking policy, Steam/Cemu launchers, and guest-specific documentation.
+networking policy, Korri launch policy, Steam/Cemu launchers, and
+guest-specific documentation.
 
 ## Current contract
 
@@ -33,8 +34,8 @@ In:
 - `rocknix-recovery-toggle.service` is the explicit safety net: `/flash/rocknix.no-nspawn`
   or `rocknix.safe=1` routes boot to the legacy ROCKNIX target.
 - Guest NixOS modules own main-space behavior: display/Sway, audio/PipeWire,
-  WirePlumber, NetworkManager, hardware buttons/lid, Steam helpers, Cemu package
-  and launchers.
+  WirePlumber, NetworkManager, hardware buttons/lid, Korri frontend consumption,
+  Steam helpers, Cemu package and launchers.
 
 Out:
 
@@ -131,6 +132,27 @@ legacy Sway/EmulationStation when the guest crashes.
 8. Memory stays within the expected budget.
 
 Logs live under `/var/log/rocknix-guest-soak*.log`.
+
+## Korri frontend consumption
+
+Layer 14 consumes Korri through the Korri-owned flake API instead of carrying
+Korri packaging logic in the ROCKNIX guest repo:
+
+- `korri.nixosModules.korri-frontend` is imported into main-space.
+- `services.korri.enable = true` installs the configured package.
+- `services.korri.package = korri.packages.${targetSystem}.korri-desktop-odin`
+  selects the Odin package variant that owns Korri's build-time frontend
+  configuration, including the native bridge URL.
+- The Sway kiosk service PATH includes `config.services.korri.package` so Sway
+  keybinds can launch the configured package binary.
+- The main-space Sway Home chord launches Korri with Home then `k`.
+
+ROCKNIX owns the guest/session runtime environment that Korri needs to start:
+`HOME=/storage`, `XDG_RUNTIME_DIR=/run/user/0`, the root session D-Bus socket,
+PipeWire/Pulse, display/input/audio/device binds, and Sway launch policy. Korri
+owns the frontend package, Electrobun wrapper, module API, and build-time
+frontend configuration. Do not add a ROCKNIX-owned Korri package or duplicate
+Korri's native bridge URL option here.
 
 ## Cemu compatibility state
 

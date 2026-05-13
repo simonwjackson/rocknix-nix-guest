@@ -6,13 +6,14 @@ This repo owns the reviewed Nix surface for the SM8550 guest path:
 
 - NixOS container guest profiles, modules, and rootfs outputs;
 - package derivations for guest Cemu and guest-native Steam helpers;
+- Korri frontend consumption via Korri's exported NixOS module and package;
 - ROCKNIX `/storage` compatibility adapters and validation launchers.
 
 ROCKNIX remains the base OS, boot/recovery plane, and host-side nspawn importer/launcher.
 
 ## Layout
 
-- `flake.nix` exposes aarch64 NixOS guest configurations, rootfs packages, and emulator package outputs.
+- `flake.nix` exposes aarch64 NixOS guest configurations, rootfs packages, emulator package outputs, and the consumed Korri flake input.
 - `rocknix-guest.nix` is the stable default Layer 10b/12 SSH-capable guest import.
 - `modules/` contains reusable NixOS modules for the container baseline, SM8550 device policy, SSH, display, audio, network, tooling, Steam, and lid policy.
 - `profiles/` composes modules into `minimal`, `ssh`, `main-space`, and `dev-env` profiles; `profiles/devices/` holds small SM8550 per-device overrides.
@@ -20,6 +21,7 @@ ROCKNIX remains the base OS, boot/recovery plane, and host-side nspawn importer/
 - `packages/steam/` contains guest-native Steam ARM64 bootstrap/seed/launch helpers, resources, and source manifest.
 - `launchers/` contains guest/host helper scripts used by the Layer 14 main-space Cemu validation path.
 - `scripts/static-checks.sh` is the repo-local structural check suite.
+- `justfile` provides local development shortcuts that preserve committed flake inputs by default.
 
 ## Flake outputs
 
@@ -70,6 +72,19 @@ Current package outputs:
 
 The rootfs tarball is imported by ROCKNIX host tooling under the configured Layer 10 guest root, normally `/storage/machines/rocknix-guest`.
 
+## Local Korri development
+
+The committed `korri` flake input in `flake.nix` is the source of truth. Do not replace it with a local path for development. The main-space profile imports `korri.nixosModules.korri-frontend`, enables `services.korri`, and selects Korri's `korri-desktop-odin` package variant.
+
+When iterating against a local Korri checkout, set `KORRI_INPUT` and use a recipe or pass the override to Nix directly:
+
+```sh
+KORRI_INPUT=path:../korri just build rootfs-odin2portal
+nix build .#rootfs-odin2portal --override-input korri path:../korri
+```
+
+If `KORRI_INPUT` is unset, recipes use the committed, locked flake input.
+
 ## Runtime boundaries
 
 The guest artifact must remain:
@@ -80,16 +95,17 @@ The guest artifact must remain:
 - independent from ROCKNIX `/usr`, `/flash`, `/boot`, and host `/etc` mutation;
 - free of broad `/storage/.cache` binds.
 
-Layer 14 main-space intentionally adds Sway, Mesa/Freedreno, PipeWire, NetworkManager, Cemu, Steam helpers, and launch adapters. The minimal/SSH profile remains the small lifecycle/SSH validation baseline.
+Layer 14 main-space intentionally adds Sway, Mesa/Freedreno, PipeWire, NetworkManager, Cemu, Steam helpers, Korri, and launch adapters. The minimal/SSH profile remains the small lifecycle/SSH validation baseline.
 
 ## Package boundary
 
-Packages own emulator-generic or package-generic setup:
+Packages own app-generic setup:
 
 - Nix Vulkan loader visibility in `packages/cemu`'s `bin/cemu` wrapper;
 - SDL screensaver guard in `packages/cemu`'s `bin/cemu` wrapper;
 - Cemu runtime data and SM8550 default settings under `$out/share/Cemu`;
 - Steam ARM64 guest-native seed/launch helpers, bootstrap resources, and source evidence under `$out/share/steam-rocknix-bootstrap` and `$out/nix-support/rocknix-steam-bootstrap`;
+- Korri's frontend package, Electrobun launch wrapper, and build-time native bridge URL in the Korri flake;
 - build evidence under `$out/nix-support/rocknix-cemu-build`.
 
 Guest modules and launch adapters own device/session policy:
@@ -98,12 +114,20 @@ Guest modules and launch adapters own device/session policy:
 - shared SM8550 defaults plus per-device overrides for display, input, audio UCM, and Cemu affinity;
 - SM8550 host CPU/GPU tuning helpers;
 - guest profile promotion/deploy scripts;
+- Korri module import, `services.korri.package` selection, and Home then `k` Sway launch binding;
 - BOTW/live validation orchestration;
 - guest FHS/nix-ld loader policy, FEX rootfs management, Sway/Gamescope launch policy, and per-game Proton settings.
 
 `rocknix-guest-main-space` installs the in-repo package outputs directly:
 
 ```nix
+services.korri = {
+  enable = true;
+  package = korri.packages.${targetSystem}.korri-desktop-odin;
+};
+
+systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];
+
 environment.systemPackages = [
   (packageSetFor targetSystem).cemu
   (packageSetFor targetSystem).steam
@@ -111,6 +135,8 @@ environment.systemPackages = [
 ```
 
 `launchers/start_cemu_guest.sh` defaults to `/run/current-system/sw/bin/cemu` and may fall back to a promoted profile for live rollback. It delegates ROCKNIX `/storage` layout compatibility to `cemu-storage-adapter.sh`; Vulkan loader setup stays in the Cemu package wrapper.
+
+Korri launches from the main-space Sway Home chord: press Home, then `k`. The guest owns the Sway binding and session environment (`HOME=/storage`, `XDG_RUNTIME_DIR=/run/user/0`, root session D-Bus, PipeWire Pulse socket); Korri owns its package/module logic and build-time frontend configuration.
 
 ## Validation
 

@@ -3,12 +3,13 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    korri.url = "github:simonwjackson/korri";
     # ROCKNIX Cemu is built against classic SDL2. nixos-25.11 aliases SDL2
     # to sdl2-compat, so keep a narrow 24.11 input only for that build input.
     nixpkgs-sdl2-classic.url = "github:NixOS/nixpkgs/nixos-24.11";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-sdl2-classic }:
+  outputs = { self, nixpkgs, nixpkgs-sdl2-classic, korri }:
     let
       targetSystem = "aarch64-linux";
       hostSystems = [ "x86_64-linux" "aarch64-linux" ];
@@ -38,9 +39,17 @@
       mainSpaceConfigurationFor = deviceProfile: nixpkgs.lib.nixosSystem {
         system = targetSystem;
         modules = [
+          korri.nixosModules.korri-frontend
           ./profiles/main-space.nix
           deviceProfile
-          ({ ... }: {
+          ({ config, ... }: {
+            services.korri = {
+              enable = true;
+              package = korri.packages.${targetSystem}.korri-desktop-odin;
+            };
+
+            systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];
+
             # Keep the emulator package source of truth in this guest flake so
             # profile composition, package derivations, and launch adapters are
             # reviewed and versioned together.
