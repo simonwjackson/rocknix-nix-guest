@@ -203,6 +203,8 @@ grep -q 'PRESSURE_VESSEL_FILESYSTEMS_RW' "$ROOT/modules/steam.nix" \
   || fail "Steam module must expose uinput/input devices to pressure-vessel"
 grep -q 'networking.networkmanager' "$ROOT/modules/network.nix" \
   || fail "network module must enable NetworkManager"
+grep -q 'wifi.backend = "iwd"' "$ROOT/modules/network.nix" \
+  || fail "NetworkManager must use guest-owned iwd for Wi-Fi"
 grep -q 'networking.nftables' "$ROOT/modules/network.nix" \
   || fail "network module must use nftables"
 grep -q 'networking.resolvconf' "$ROOT/modules/network.nix" \
@@ -227,6 +229,8 @@ grep -q 'CAP_NET_RAW' "$ROOT/modules/network.nix" \
   || fail "guest Tailscale service must be able to open raw network sockets"
 grep -q 'tailscale' "$ROOT/modules/network.nix" \
   || fail "network module must include the tailscale CLI package"
+grep -q 'iwd' "$ROOT/modules/network.nix" \
+  || fail "network module must include guest iwd for Wi-Fi ownership"
 grep -q 'time.timeZone' "$ROOT/profiles/main-space.nix" \
   || fail "main-space profile must set time.timeZone"
 grep -q 'systemd.services.rocknix-sway-kiosk' "$ROOT/profiles/main-space.nix" \

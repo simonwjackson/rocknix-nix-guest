@@ -1,4 +1,4 @@
-# Layer 14 network module: NetworkManager owns wlan0 from guest namespace.
+# Layer 14 network module: NetworkManager + iwd own wlan0 from the guest.
 #
 # Tier C confirmed:
 #   - guest and host already share root netns (Layer 14 wants this)
@@ -22,7 +22,10 @@
 {
   networking.networkmanager = {
     enable = true;
-    wifi.backend = "wpa_supplicant";
+    # Keep the wireless control plane in the guest. ROCKNIX used iwd for the
+    # SM8550 Wi-Fi PHY; using NetworkManager's iwd backend lets the guest own
+    # nl80211/rfkill/auth instead of depending on a host iwd daemon.
+    wifi.backend = "iwd";
     dns = "default";
   };
 
@@ -76,7 +79,7 @@
     nftables
     iproute2
     networkmanager
-    wpa_supplicant
+    iwd
     tailscale
   ];
 }
