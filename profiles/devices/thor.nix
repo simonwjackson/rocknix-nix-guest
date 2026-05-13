@@ -2,5 +2,7 @@
 { ... }:
 
 {
+  networking.hostName = "bandai";
+
   rocknix.sm8550.deviceId = "thor";
 }

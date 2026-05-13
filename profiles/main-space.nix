@@ -55,9 +55,10 @@ in
     ../modules/steam.nix
   ];
 
-  # Layer 14 hostname: distinguish from the Layer 10b minimal "rocknix-guest"
-  # so machinectl/journal/etc. show the main-space identity clearly.
-  networking.hostName = lib.mkForce "rocknix-nix";
+  # Layer 14 default hostname: distinguish from the Layer 10b minimal
+  # "rocknix-guest" while allowing device profiles to provide stable
+  # per-device names for SSH, Tailscale, and journals.
+  networking.hostName = lib.mkDefault "rocknix-nix";
 
   # Tier E2 surfaced tz-data.service 203/EXEC on every switch because
   # ROCKNIX's tz-data unit ExecStart=/bin/ln -sf /usr/share/zoneinfo/${TIMEZONE}
