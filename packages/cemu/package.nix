@@ -30,6 +30,8 @@
 , wxwidgets_3_3
 , zarchive
 , bluez
+, libpulseaudio
+, alsa-lib
 }:
 
 let
@@ -85,6 +87,8 @@ stdenv.mkDerivation rec {
     wxwidgets_3_3
     zarchive
     bluez
+    libpulseaudio
+    alsa-lib
   ];
 
   strictDeps = true;
@@ -94,6 +98,9 @@ stdenv.mkDerivation rec {
     # Characterization gate: ROCKNIX host /usr/bin/cemu fingerprints as an
     # ELF EXEC binary while nixpkgs-derived candidates used PIE/DYN wrappers.
     "-DCMAKE_EXE_LINKER_FLAGS=-no-pie"
+    # Preserve the ROCKNIX/direct-package performance posture (bundled Cubeb,
+    # classic SDL2, ELF EXEC). Pulse/ALSA are still built into bundled Cubeb via
+    # headers, but loaded lazily from the package wrapper at runtime.
   ];
 
   env = {
@@ -149,9 +156,14 @@ set -eu
 
 cemu_wrapper_dir=\$(CDPATH= cd -- "\$(dirname -- "\$0")" && pwd)
 vulkan_loader_lib_path="${lib.makeLibraryPath [ vulkan-loader ]}"
+audio_backend_lib_path="${lib.makeLibraryPath [ libpulseaudio alsa-lib ]}"
 
-if [ -n "\$vulkan_loader_lib_path" ]; then
-  export LD_LIBRARY_PATH="\$vulkan_loader_lib_path''${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
+runtime_lib_path="\$vulkan_loader_lib_path"
+if [ -n "\$audio_backend_lib_path" ]; then
+  runtime_lib_path="\$runtime_lib_path:\$audio_backend_lib_path"
+fi
+if [ -n "\$runtime_lib_path" ]; then
+  export LD_LIBRARY_PATH="\$runtime_lib_path''${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
 fi
 
 # Cemu's Linux screensaver-inhibit path has crashed in SDL compatibility
@@ -237,7 +249,9 @@ EOF
       printf '%s\n' 'wrapper-vulkan-loader=true'
       printf '%s\n' 'bundled-cubeb=true'
       printf '%s\n' 'no-dynamic-cubeb=true'
+      printf '%s\n' 'bundled-cubeb-linux-audio=lazy-pulse-alsa'
       printf '%s\n' 'vulkan-loader-lib-path=${lib.makeLibraryPath [ vulkan-loader ]}'
+      printf '%s\n' 'audio-backend-lib-path=${lib.makeLibraryPath [ libpulseaudio alsa-lib ]}'
     } > "$out/nix-support/rocknix-cemu-build/manifest.txt"
 
     if [ -f CMakeCache.txt ]; then
@@ -247,6 +261,7 @@ EOF
       cp compile_commands.json "$out/nix-support/rocknix-cemu-build/compile_commands.json"
     fi
     printf '%s\n' '${lib.makeLibraryPath [ vulkan-loader ]}' > "$out/nix-support/rocknix-cemu-build/vulkan-loader-lib-path"
+    printf '%s\n' '${lib.makeLibraryPath [ libpulseaudio alsa-lib ]}' > "$out/nix-support/rocknix-cemu-build/audio-backend-lib-path"
     if [ -f build.ninja ]; then
       awk '/Cemu.*:.*CXX_EXECUTABLE_LINKER/ || /build .*Cemu_/ { print }' build.ninja \
         > "$out/nix-support/rocknix-cemu-build/link-lines.txt" || true

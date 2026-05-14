@@ -8,6 +8,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 [ -f "$ROOT/flake.lock" ] || fail "missing flake.lock"
 [ -f "$ROOT/justfile" ] || fail "missing justfile"
 [ -f "$ROOT/rocknix-guest.nix" ] || fail "missing default guest config"
+[ -f "$ROOT/.github/workflows/build-rootfs-seed.yml" ] || fail "missing rootfs seed publish workflow"
 [ -d "$ROOT/modules" ] || fail "missing modules directory"
 [ -d "$ROOT/profiles" ] || fail "missing profiles directory"
 [ -d "$ROOT/launchers" ] || fail "missing launchers directory"
@@ -51,14 +52,22 @@ grep -q '(packageSetFor targetSystem).steam' "$ROOT/flake.nix" \
   || fail "main-space guest must install in-repo Steam package helpers"
 grep -q 'korri.nixosModules.korri-frontend' "$ROOT/flake.nix" \
   || fail "main-space guest must import the Korri-owned frontend NixOS module"
+grep -q 'korri.nixosModules.korri-inputd' "$ROOT/flake.nix" \
+  || fail "main-space guest must import the Korri-owned inputd NixOS module"
 grep -q 'services.korri = {' "$ROOT/flake.nix" \
   || fail "main-space guest must configure Korri through the Korri-owned module"
 grep -A4 'services.korri = {' "$ROOT/flake.nix" | grep -q 'enable = true;' \
   || fail "main-space guest must enable Korri through services.korri"
 grep -A4 'services.korri = {' "$ROOT/flake.nix" | grep -q 'korri.packages.${targetSystem}.korri-desktop-odin' \
   || fail "main-space guest must use Korri's Odin desktop package variant until Korri publishes a device alias"
-grep -F -q 'systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];' "$ROOT/flake.nix" \
+grep -q 'inputd = {' "$ROOT/flake.nix" \
+  || fail "main-space guest must configure Korri inputd through the Korri-owned module"
+grep -q 'korri.packages.${targetSystem}.korri-inputd' "$ROOT/flake.nix" \
+  || fail "main-space guest must use Korri's inputd package"
+grep -q 'path = \[ config.services.korri.package \];' "$ROOT/flake.nix" \
   || fail "sway kiosk service PATH must include the configured Korri package"
+grep -q 'korri-inputd.service' "$ROOT/flake.nix" \
+  || fail "sway kiosk service must order against Korri inputd"
 grep -q 'rocknix-guest-main-space-thor' "$ROOT/flake.nix" \
   || fail "guest flake must expose a Thor main-space configuration"
 grep -q 'rocknix-guest-main-space-odin2portal' "$ROOT/flake.nix" \
@@ -97,6 +106,30 @@ grep -q 'root/etc/ssh/authorized_keys.d/root' "$ROOT/flake.nix" \
   || fail "rootfs must provide regular authorized_keys target for StrictModes"
 grep -q 'root/usr/bin/nix' "$ROOT/flake.nix" \
   || fail "rootfs must expose /usr/bin/nix for bridge/smoke contracts"
+
+ROOTFS_SEED_WORKFLOW="$ROOT/.github/workflows/build-rootfs-seed.yml"
+grep -q 'nix build ".#${{ steps.meta.outputs.package }}"' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must build the selected flake rootfs package"
+grep -q 'rootfs-thor' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must support Thor rootfs seed builds"
+grep -q 'rootfs-odin2portal' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must support Odin 2 Portal rootfs seed builds"
+grep -q 'sha256sum' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must publish SHA256 material for host pinning"
+grep -q '.manifest.json' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must publish a manifest"
+grep -q 'gh release create' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must publish GitHub Release assets"
+grep -q 'PKG_NIX_GUEST_ROOTFS_SEED_URL' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow release notes must print host package seed URL"
+grep -q 'PKG_NIX_GUEST_ROOTFS_SEED_SHA256' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow release notes must print host package seed SHA"
+grep -q 'docker/setup-qemu-action' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must register aarch64 binfmt for x86_64 runners"
+grep -q 'actions/upload-artifact' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must upload inspection artifacts even when not publishing a release"
+grep -q 'Publishing first-boot rootfs seed artifacts' "$ROOT/README.md" \
+  || fail "README must document rootfs seed publishing workflow"
 
 # Guest baseline.
 grep -R -q 'boot.isContainer = true' "$ROOT" \

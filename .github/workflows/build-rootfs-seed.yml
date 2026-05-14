@@ -1,0 +1,161 @@
+name: Build rootfs seed
+
+on:
+  workflow_dispatch:
+    inputs:
+      device:
+        description: Rootfs package/device to build
+        required: true
+        default: thor
+        type: choice
+        options:
+          - thor
+          - odin2portal
+      publish_release:
+        description: Publish immutable GitHub Release assets
+        required: true
+        default: false
+        type: boolean
+      release_tag:
+        description: Release tag to create/use when publishing (default rootfs-seed-<short-sha>)
+        required: false
+        type: string
+  push:
+    tags:
+      - rootfs-seed-*
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rootfs-seed-${{ github.ref }}-${{ inputs.device || 'thor' }}
+  cancel-in-progress: false
+
+jobs:
+  build-rootfs-seed:
+    name: Build ${{ inputs.device || 'thor' }} rootfs seed
+    runs-on: ubuntu-24.04
+    env:
+      DEVICE: ${{ inputs.device || 'thor' }}
+      GH_TOKEN: ${{ github.token }}
+      NIX_CONFIG: |
+        experimental-features = nix-command flakes
+        extra-platforms = aarch64-linux
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Register aarch64 binfmt
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            extra-platforms = aarch64-linux
+
+      - name: Resolve build metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${DEVICE}" in
+            thor) package="rootfs-thor" ;;
+            odin2portal) package="rootfs-odin2portal" ;;
+            *) echo "unsupported device: ${DEVICE}" >&2; exit 1 ;;
+          esac
+
+          short_sha="${GITHUB_SHA::12}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            release_tag="${GITHUB_REF_NAME}"
+          elif [ -n "${{ inputs.release_tag }}" ]; then
+            release_tag="${{ inputs.release_tag }}"
+          else
+            release_tag="rootfs-seed-${short_sha}"
+          fi
+
+          echo "package=${package}" >> "${GITHUB_OUTPUT}"
+          echo "short_sha=${short_sha}" >> "${GITHUB_OUTPUT}"
+          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+          echo "asset_prefix=rocknix-guest-rootfs-${DEVICE}-${short_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Run static checks
+        run: ./scripts/static-checks.sh
+
+      - name: Build rootfs
+        run: nix build ".#${{ steps.meta.outputs.package }}" --print-build-logs
+
+      - name: Stage release files
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          src="$(find result/tarball -maxdepth 1 -type f -name '*.tar.*' | sort | head -n 1)"
+          [ -n "${src}" ] || { echo "rootfs tarball missing" >&2; exit 1; }
+          asset="dist/${{ steps.meta.outputs.asset_prefix }}.tar.zst"
+          cp "${src}" "${asset}"
+          sha256sum "${asset}" > "${asset}.sha256"
+          sha256="$(awk '{print $1}' "${asset}.sha256")"
+          cat > "dist/${{ steps.meta.outputs.asset_prefix }}.manifest.json" <<MANIFEST
+          {
+            "schema": "rocknix-guest-rootfs-seed/v1",
+            "device": "${DEVICE}",
+            "package": "${{ steps.meta.outputs.package }}",
+            "git_sha": "${GITHUB_SHA}",
+            "git_ref": "${GITHUB_REF}",
+            "release_tag": "${{ steps.meta.outputs.release_tag }}",
+            "asset_name": "$(basename "${asset}")",
+            "sha256": "${sha256}",
+            "built_at": "$(date -u +%FT%TZ)"
+          }
+          MANIFEST
+          echo "asset=${asset}" >> "${GITHUB_OUTPUT}"
+          echo "sha256=${sha256}" >> "${GITHUB_OUTPUT}"
+          echo "asset_name=$(basename "${asset}")" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.asset_prefix }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag' || inputs.publish_release == true
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.meta.outputs.release_tag }}"
+          title="ROCKNIX guest rootfs seed ${DEVICE} ${{ steps.meta.outputs.short_sha }}"
+          notes_file="dist/release-notes.md"
+          {
+            echo "# ${title}"
+            echo
+            echo "Source SHA: \`${GITHUB_SHA}\`"
+            echo "Device: \`${DEVICE}\`"
+            echo "Package: \`${{ steps.meta.outputs.package }}\`"
+            echo "Asset: \`${{ steps.stage.outputs.asset_name }}\`"
+            echo "SHA256: \`${{ steps.stage.outputs.sha256 }}\`"
+            echo
+            echo "Host package.mk seed values:"
+            echo
+            echo '```sh'
+            echo "PKG_NIX_GUEST_ROOTFS_SEED_REV=\"${GITHUB_SHA}\""
+            echo "PKG_NIX_GUEST_ROOTFS_SEED_URL=\"https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${{ steps.stage.outputs.asset_name }}\""
+            echo "PKG_NIX_GUEST_ROOTFS_SEED_SHA256=\"${{ steps.stage.outputs.sha256 }}\""
+            echo '```'
+          } > "${notes_file}"
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" dist/* --clobber
+          else
+            gh release create "${tag}" dist/* \
+              --target "${GITHUB_SHA}" \
+              --title "${title}" \
+              --notes-file "${notes_file}"
+          fi

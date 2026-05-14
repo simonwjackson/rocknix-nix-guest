@@ -74,6 +74,19 @@ Current package outputs:
 
 The rootfs tarball is imported by ROCKNIX host tooling under the configured Layer 10 guest root, normally `/storage/machines/rocknix-guest`.
 
+## Publishing first-boot rootfs seed artifacts
+
+The ROCKNIX host first-boot path consumes a pinned, immutable rootfs seed tarball rather than the guest source tree. `.github/workflows/build-rootfs-seed.yml` automates that artifact boundary:
+
+- `workflow_dispatch` builds `.#rootfs-thor` or `.#rootfs-odin2portal` and always uploads a short-lived workflow artifact for inspection.
+- When run from a `rootfs-seed-*` tag, or when `publish_release=true` is selected manually, it publishes GitHub Release assets:
+  - `rocknix-guest-rootfs-<device>-<short-sha>.tar.zst`
+  - matching `.sha256`
+  - matching `.manifest.json`
+- The release notes print the exact `PKG_NIX_GUEST_ROOTFS_SEED_REV`, `PKG_NIX_GUEST_ROOTFS_SEED_URL`, and `PKG_NIX_GUEST_ROOTFS_SEED_SHA256` values for the ROCKNIX host `rocknix-guest-substrate/package.mk` pin.
+
+Prefer release assets over workflow artifacts for host consumption: workflow artifacts expire and are API-oriented, while release URLs are stable enough for the host package fetch/verify step.
+
 ## Local Korri development
 
 The committed `korri` flake input in `flake.nix` is the source of truth. Do not replace it with a local path for development. The main-space profile imports `korri.nixosModules.korri-frontend`, enables `services.korri`, and selects Korri's `korri-desktop-odin` package variant until Korri publishes a stable device alias.

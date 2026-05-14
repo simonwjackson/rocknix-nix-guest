@@ -344,6 +344,12 @@ Host prep should become generic and generation-driven rather than product-specif
 
 Stage 10 is done when the selected Nix guest generation fully defines the guest system and can be switched/rolled back without product-specific host mutation.
 
+### Proof Status — 2026-05-13
+
+This has now been proven once on **sobo / Odin 2 Portal**: an off-device guest generation B was imported, selected, booted, verified through a guest-owned proof marker, and then rolled back to generation A with selected = legacy = running restored to A and zero failed host/guest units.
+
+The proof record lives in `docs/solutions/developer-experience/rocknix-stage10-generation-switch-proof-sm8550-2026-05-13.md`. Treat it as a device-specific Stage 10 proof, not yet as a device-generic generation management UX.
+
 ---
 
 ## Stage 11 — Nix-Owned Boot Artifacts
