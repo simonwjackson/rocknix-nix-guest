@@ -12,6 +12,7 @@ PATH=/run/current-system/sw/bin:/usr/bin:/bin:/storage/.guest:$PATH
 export PATH
 
 PROMOTED_PROFILE="${CEMU_PROMOTED_PROFILE:-/nix/var/nix/profiles/per-user/root/cemu-promoted}"
+GUEST_SERVICE="${ROCKNIX_GUEST_SERVICE:-rocknix-guest.service}"
 CEMU_BIN_INPUT="${1:-${CEMU_BIN:-}}"
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
@@ -21,13 +22,14 @@ usage() {
 usage: remote-cemu-promote.sh /nix/store/...-cemu-rocknix-package-.../bin/cemu
        remote-cemu-promote.sh /nix/store/...-cemu-rocknix-package-.../bin/Cemu
 
-The closure must already be imported into the guest store. The promoted package-owned entry point is:
+The closure must already be imported into the guest store. Use remote-cemu-import.sh from the build host first if needed.
+The promoted package-owned entry point is:
   ${PROMOTED_PROFILE}/bin/cemu
 EOF
 }
 
 guest_pid() {
-  main="$(systemctl show -p MainPID --value rocknix-guest-v2.service 2>/dev/null || true)"
+  main="$(systemctl show -p MainPID --value "$GUEST_SERVICE" 2>/dev/null || true)"
   [ -n "$main" ] && [ "$main" != "0" ] || return 1
   pgrep -P "$main" 2>/dev/null | head -1
 }
@@ -58,6 +60,16 @@ real=\$(readlink -f \"\$cemu\" 2>/dev/null || printf '%s' \"\$cemu\")
 out=\$(dirname \"\$(dirname \"\$real\")\")
 [ -d \"\$out/nix-support/rocknix-cemu-build\" ] || { echo \"refusing to promote non-direct-package Cemu output: \$out\" >&2; exit 3; }
 [ -f \"\$out/nix-support/rocknix-cemu-build/vulkan-loader-lib-path\" ] || { echo \"direct Cemu output lacks vulkan-loader-lib-path evidence: \$out\" >&2; exit 3; }
+[ -f \"\$out/nix-support/rocknix-cemu-build/audio-backend-lib-path\" ] || { echo \"direct Cemu output lacks audio-backend-lib-path evidence: \$out\" >&2; exit 3; }
+[ -f \"\$out/nix-support/rocknix-cemu-build/cubeb-backend-evidence.txt\" ] || { echo \"direct Cemu output lacks Cubeb backend evidence: \$out\" >&2; exit 3; }
+if readelf -d \"\$out/bin/Cemu\" 2>/dev/null | grep -q 'libcubeb'; then
+  echo \"refusing to promote Cemu with dynamic libcubeb: \$out\" >&2
+  exit 3
+fi
+if (pgrep -x Cemu 2>/dev/null || pgrep -x cemu 2>/dev/null) | grep -q .; then
+  echo \"refusing to promote while Cemu is running in the guest\" >&2
+  exit 5
+fi
 mkdir -p \"\$(dirname \"\$profile\")\"
 nix profile install --profile \"\$profile\" \"\$out\"
 [ -x \"\$profile/bin/cemu\" ] || { echo \"promotion did not produce package entry point \$profile/bin/cemu\" >&2; exit 4; }
@@ -69,6 +81,8 @@ printf '%s\n' \
   \"compat_cemu=\$profile/bin/Cemu\" \
   \"source=\$out\" \
   \"real=\$promoted_real\" \
-  \"vulkan_loader_lib_path=\$(cat \"\$out/nix-support/rocknix-cemu-build/vulkan-loader-lib-path\")\"
+  \"vulkan_loader_lib_path=\$(cat \"\$out/nix-support/rocknix-cemu-build/vulkan-loader-lib-path\")\" \
+  \"audio_backend_lib_path=\$(cat \"\$out/nix-support/rocknix-cemu-build/audio-backend-lib-path\")\" \
+  \"cubeb_backend_evidence=\$out/nix-support/rocknix-cemu-build/cubeb-backend-evidence.txt\"
 "
 log "promotion complete: ${PROMOTED_PROFILE}/bin/cemu"

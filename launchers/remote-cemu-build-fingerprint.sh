@@ -16,6 +16,7 @@ HOST_CEMU="${HOST_CEMU:-/usr/bin/cemu}"
 GUEST_CEMU="${GUEST_CEMU:-/run/current-system/sw/bin/cemu}"
 CANDIDATE_CEMU="${CANDIDATE_CEMU:-}"
 CEMU_COMMIT="6f6c1299e29fa6e1062ae283a035b4ef787cc397"
+GUEST_SERVICE="${ROCKNIX_GUEST_SERVICE:-rocknix-guest.service}"
 
 mkdir -p "$RUN_DIR"
 
@@ -26,7 +27,7 @@ host_cmd() {
 }
 
 guest_pid() {
-  main="$(systemctl show -p MainPID --value rocknix-guest-v2.service 2>/dev/null || true)"
+  main="$(systemctl show -p MainPID --value "$GUEST_SERVICE" 2>/dev/null || true)"
   [ -n "$main" ] && [ "$main" != "0" ] || return 1
   pgrep -P "$main" 2>/dev/null | head -1
 }
@@ -92,7 +93,7 @@ guest_file_section() {
   append_guest_cmd "$label dynamic NEEDED" "PATH=/run/current-system/sw/bin:/bin:/usr/bin:/nix/var/nix/profiles/per-user/root/profile/bin; target='$bin'; [ -e '$wrapped' ] && target='$wrapped'; if command -v readelf >/dev/null 2>&1 && [ -e \"\$target\" ]; then readelf -d \"\$target\" | grep -E 'NEEDED|RUNPATH|RPATH|FLAGS' || true; else echo 'missing readelf or binary'; fi"
   append_guest_cmd "$label ldd" "PATH=/run/current-system/sw/bin:/bin:/usr/bin:/nix/var/nix/profiles/per-user/root/profile/bin; target='$bin'; [ -e '$wrapped' ] && target='$wrapped'; if command -v ldd >/dev/null 2>&1 && [ -e \"\$target\" ]; then ldd \"\$target\"; else echo 'missing ldd or binary'; fi"
   append_guest_cmd "$label runtime data" "out=\$(dirname \$(dirname '$bin')); for d in \"\$out/share/Cemu/gameProfiles/default\" \"\$out/share/Cemu/resources\"; do if [ -d \"\$d\" ]; then echo present-dir: \"\$d\"; find \"\$d\" -maxdepth 2 -type f | head -20; else echo missing-dir: \"\$d\"; fi; done; for f in \"\$out/share/Cemu/resources/sharedFonts/CafeCn.ttf\" \"\$out/share/Cemu/config/SM8550/settings.xml\"; do if [ -f \"\$f\" ]; then ls -l \"\$f\"; else echo missing: \"\$f\"; fi; done"
-  append_guest_cmd "$label build evidence" "out=\$(dirname \$(dirname '$bin')); evidence=\"\$out/nix-support/rocknix-cemu-build\"; if [ -d \"\$evidence\" ]; then find \"\$evidence\" -maxdepth 1 -type f -printf '%f\\n' 2>/dev/null | sort; for f in manifest.txt compiler-version.txt link-lines.txt build-env.txt cubeb-evidence.txt readelf-header.txt readelf-dynamic.txt; do [ -f \"\$evidence/\$f\" ] && { echo --- \"\$f\"; sed -n '1,160p' \"\$evidence/\$f\"; }; done; if [ -f \"\$evidence/CMakeCache.txt\" ]; then echo --- CMakeCache-selected; grep -E 'ENABLE_|CMAKE_(CXX|C|EXE|BUILD|INTERPROCEDURAL)|cubeb|SDL|Vulkan|glslang|wxWidgets|GTK|OPENSSL|ZArchive|fmt|Boost' \"\$evidence/CMakeCache.txt\" | head -240 || true; fi; else echo 'no rocknix-cemu-build evidence directory'; fi"
+  append_guest_cmd "$label build evidence" "out=\$(dirname \$(dirname '$bin')); evidence=\"\$out/nix-support/rocknix-cemu-build\"; if [ -d \"\$evidence\" ]; then find \"\$evidence\" -maxdepth 1 -type f -printf '%f\\n' 2>/dev/null | sort; for f in manifest.txt compiler-version.txt link-lines.txt build-env.txt cubeb-evidence.txt cubeb-backend-evidence.txt cubeb-backend-strings.txt audio-backend-lib-path readelf-header.txt readelf-dynamic.txt; do [ -f \"\$evidence/\$f\" ] && { echo --- \"\$f\"; sed -n '1,160p' \"\$evidence/\$f\"; }; done; if [ -f \"\$evidence/CMakeCache.txt\" ]; then echo --- CMakeCache-selected; grep -E 'ENABLE_|CMAKE_(CXX|C|EXE|BUILD|INTERPROCEDURAL)|cubeb|USE_PULSE|USE_ALSA|LAZY_LOAD|SDL|Vulkan|glslang|wxWidgets|GTK|OPENSSL|ZArchive|fmt|Boost' \"\$evidence/CMakeCache.txt\" | head -240 || true; fi; else echo 'no rocknix-cemu-build evidence directory'; fi"
   append_guest_cmd "$label nix references" "PATH=/run/current-system/sw/bin:/bin:/usr/bin:/nix/var/nix/profiles/per-user/root/profile/bin; target='$bin'; [ -e '$wrapped' ] && target='$wrapped'; if command -v nix-store >/dev/null 2>&1 && [ -e \"\$target\" ]; then nix-store -q --references \"\$target\" 2>/dev/null | sort; else echo 'missing nix-store or binary'; fi"
 }
 

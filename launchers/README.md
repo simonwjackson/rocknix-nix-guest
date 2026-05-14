@@ -10,7 +10,7 @@ or host Cemu binaries.
 | Script | Role |
 |---|---|
 | `start_cemu_guest.sh` | Thin compatibility launcher. Selects promoted/override Cemu, normalizes real-binary overrides back to package-owned `bin/cemu` when available, requires guest-session env, delegates user-data layout to `cemu-storage-adapter.sh`, then execs Cemu fullscreen with the requested ROM. |
-| `cemu-storage-adapter.sh` | Guest-owned `/storage` compatibility adapter. Idempotently preserves existing Cemu settings/saves/keys/MLC layout under XDG paths and `/storage/roms/bios/cemu`; never part of the generic package wrapper. |
+| `cemu-storage-adapter.sh` | Guest-owned `/storage` compatibility adapter. Idempotently preserves existing Cemu settings/saves/keys/MLC layout under XDG paths and `/storage/roms/bios/cemu`; normalizes stale audio device IDs with a backup; never part of the generic package wrapper. |
 | `cemu-sm8550-performance.sh` | Guest/session-owned SM8550 Cemu performance profile. Applies measured CPU caps, best-effort GPU devfreq policy, and Cemu thread affinity; generic package wrapper never owns this device policy. |
 | `start_cemu_guest_mangohud.sh` | Nix MangoHud wrapper around `start_cemu_guest.sh`. Diagnostic/profile mode only. |
 | `start_cemu_guest_gamescope.sh` | Nix gamescope wrapper matching the host 360p/540p -> 1080p FSR pipeline shape. Diagnostic/profile mode until validated. |
@@ -20,12 +20,13 @@ or host Cemu binaries.
 | `games-launcher.sh` | Touch-friendly fuzzel menu pinned to DSI-1 (Thor's bottom panel). Kept available, but not autostarted while touch/menu behavior is under validation. |
 | `host-tune.sh` | Temporary host-side sysfs tuning helper. Runs on ROCKNIX host only for privileged controls the guest cannot safely own yet, especially GPU devfreq. |
 | `remote-cemu-cleanup.sh` | Host-side cleanup script for unattended Cemu/gamescope experiments. Kills exact process names and closes stale guest Sway Cemu windows. |
-| `remote-cemu-runner.sh` | Host-side benchmark harness. Creates `/storage/.guest/runs/<timestamp>-<variant>-<profile>/` with logs, title samples, screenshot, governor/thermal/process state. Supports `RUNNER_CEMU_START` for guest candidates and `RUNNER_HOST_LAUNCHER` for typed host-control cases. |
+| `remote-cemu-runner.sh` | Host-side benchmark harness. Creates `/storage/.guest/runs/<timestamp>-<variant>-<profile>/` with logs, title samples, screenshot, governor/thermal/process state, and Pulse/PipeWire sink-input evidence. Supports `RUNNER_CEMU_START` for guest candidates and `RUNNER_HOST_LAUNCHER` for typed host-control cases. |
 | `remote-cemu-single-run-validation.sh` | Host-side one-command orchestrator. Runs a compact headless benchmark matrix, analyzes MangoHud CSVs, writes a parent `report.md`, and restores safe state. |
-| `remote-cemu-build-fingerprint.sh` | Host-side build/runtime fingerprint report for ROCKNIX host Cemu, current guest Nix Cemu, and an optional candidate Cemu. |
+| `remote-cemu-build-fingerprint.sh` | Host-side build/runtime fingerprint report for ROCKNIX host Cemu, current guest Nix Cemu, and an optional candidate Cemu, including bundled Cubeb Pulse/ALSA backend evidence. |
 | `remote-cemu-runtime-ab.sh` | Host-side current-vs-candidate Cemu A/B harness, including a live checkpoint mode for in-game sampling. |
 | `remote-cemu-live-campaign.sh` | Host-side one-session live campaign. Runs typed guest and host-control cases sequentially, waits for in-game checkpoint notes, captures maps/thread/cache/CSV evidence, then cleans up and restores power state. Child run directories are indexed so A/B/A repeats do not overwrite evidence. |
-| `remote-cemu-promote.sh` | Host-side promotion helper. Installs an already-imported in-repo Cemu output into `/nix/var/nix/profiles/per-user/root/cemu-promoted` inside the guest as a stable GC-rooted rollback path. |
+| `remote-cemu-import.sh` | Build-host helper. Exports a built in-repo Cemu candidate closure and imports it into the Thor guest store over SSH without promoting it. |
+| `remote-cemu-promote.sh` | Host-side promotion helper. Installs an already-imported in-repo Cemu output into `/nix/var/nix/profiles/per-user/root/cemu-promoted` inside the guest as a stable GC-rooted rollback path; refuses dynamic `libcubeb`, missing audio evidence, or live Cemu processes. |
 | `launch-host-cemu-through-guest-display.sh` | Diagnostic host-control launcher. Runs host `/usr/bin/cemu` through the guest-visible display path for same-session parity checks. |
 
 ## BOTW profiles
@@ -71,14 +72,19 @@ explicit temporary host adapter for privileged GPU devfreq writes.
 
 It retains `/nix/var/nix/profiles/per-user/root/cemu-promoted/bin/cemu` as a live rollback fallback for guests that have not switched to the current system package yet.
 
-Promote only an already-imported `cemu` output from this flake:
+Import and promote only a validated `cemu` output from this flake:
 
 ```sh
+# From the build host that has the candidate in /nix/store:
+./launchers/remote-cemu-import.sh \
+  /nix/store/...-cemu-rocknix-package-2.999.0-rocknix-package
+
+# From the ROCKNIX host, after audio/FPS validation:
 /storage/.guest/remote-cemu-promote.sh \
   /nix/store/...-cemu-rocknix-package-2.999.0-rocknix-package/bin/cemu
 ```
 
-The helper installs the package output into a dedicated Nix profile/GC root and refuses outputs that lack the direct package's `nix-support/rocknix-cemu-build/vulkan-loader-lib-path` evidence. The launcher resolves the profile symlink with `readlink -f` before reading package metadata, so Vulkan loader discovery still comes from the real store output.
+The helper installs the package output into a dedicated Nix profile/GC root and refuses outputs that lack the direct package's `nix-support/rocknix-cemu-build/vulkan-loader-lib-path`, `audio-backend-lib-path`, and `cubeb-backend-evidence.txt` evidence. The launcher resolves the profile symlink with `readlink -f` before reading package metadata, so Vulkan/audio backend discovery still comes from the real store output.
 
 Build-parity diagnostics may override the binary with `CEMU_BIN` via `start_cemu_guest_candidate.sh`; this keeps settings, saves, XDG paths, and logging identical while changing only the Cemu binary under test. Do not use `CEMU_BIN` to point at host `/usr/bin/cemu` as a product path; host binaries are diagnostic controls only and must not become the Layer 14 runtime contract.
 

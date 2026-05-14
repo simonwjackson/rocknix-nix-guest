@@ -225,11 +225,42 @@ EOF
       exit 1
     fi
     {
-      grep -H 'cubeb' CMakeCache.txt build.ninja 2>/dev/null || true
+      grep -H 'cubeb\|USE_PULSE\|USE_ALSA\|LAZY_LOAD_LIBS\|libpulse\|alsa' CMakeCache.txt build.ninja compile_commands.json 2>/dev/null || true
       find . -maxdepth 5 -path '*cubeb*' -print 2>/dev/null || true
     } > "$out/nix-support/rocknix-cemu-build/cubeb-evidence.txt"
     grep -q 'dependencies/cubeb\|cubeb' "$out/nix-support/rocknix-cemu-build/cubeb-evidence.txt" || {
       echo "error: bundled Cubeb build evidence not found" >&2
+      exit 1
+    }
+    grep -q 'USE_PULSE.*=1\|USE_PULSE:INTERNAL=1\|-DUSE_PULSE' "$out/nix-support/rocknix-cemu-build/cubeb-evidence.txt" || {
+      echo "error: bundled Cubeb Pulse backend evidence not found" >&2
+      exit 1
+    }
+    grep -q 'USE_ALSA.*=1\|USE_ALSA:INTERNAL=1\|-DUSE_ALSA' "$out/nix-support/rocknix-cemu-build/cubeb-evidence.txt" || {
+      echo "error: bundled Cubeb ALSA backend evidence not found" >&2
+      exit 1
+    }
+    grep -q 'cubeb_pulse.c.o\|cubeb_pulse.c' "$out/nix-support/rocknix-cemu-build/cubeb-evidence.txt" || {
+      echo "error: bundled Cubeb Pulse source was not compiled" >&2
+      exit 1
+    }
+    grep -q 'cubeb_alsa.c.o\|cubeb_alsa.c' "$out/nix-support/rocknix-cemu-build/cubeb-evidence.txt" || {
+      echo "error: bundled Cubeb ALSA source was not compiled" >&2
+      exit 1
+    }
+    {
+      printf '%s\n' 'backend-mode=lazy-pulse-alsa'
+      grep -E 'USE_PULSE|USE_ALSA|LAZY_LOAD_LIBS' CMakeCache.txt 2>/dev/null || true
+      grep -E 'cubeb_pulse\.c|cubeb_alsa\.c|-DUSE_PULSE|-DUSE_ALSA' build.ninja compile_commands.json 2>/dev/null || true
+    } > "$out/nix-support/rocknix-cemu-build/cubeb-backend-evidence.txt"
+    ${binutils}/bin/strings "$out/bin/Cemu" | grep -Ei 'libpulse|libasound|pulse|alsa|cubeb' \
+      > "$out/nix-support/rocknix-cemu-build/cubeb-backend-strings.txt" || true
+    grep -q 'libpulse.so\|pulse' "$out/nix-support/rocknix-cemu-build/cubeb-backend-strings.txt" || {
+      echo "error: Cemu binary lacks Pulse backend runtime strings" >&2
+      exit 1
+    }
+    grep -q 'libasound.so\|alsa' "$out/nix-support/rocknix-cemu-build/cubeb-backend-strings.txt" || {
+      echo "error: Cemu binary lacks ALSA backend runtime strings" >&2
       exit 1
     }
 

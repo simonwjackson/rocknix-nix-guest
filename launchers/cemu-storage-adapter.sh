@@ -14,6 +14,7 @@ CEMU_HOME_CONFIG="${CEMU_HOME_CONFIG:-${CEMU_CONFIG_ROOT}/share}"
 CEMU_HOME_LOCAL="${CEMU_HOME_LOCAL:-${XDG_DATA_HOME}/Cemu}"
 CEMU_BIOS_ROOT="${CEMU_BIOS_ROOT:-/storage/roms/bios/cemu}"
 CEMU_DEFAULT_SETTINGS="${CEMU_DEFAULT_SETTINGS:-}"
+CEMU_NORMALIZE_AUDIO_SETTINGS="${CEMU_NORMALIZE_AUDIO_SETTINGS:-1}"
 
 mkdir -p "$CEMU_HOME_CONFIG"
 
@@ -22,6 +23,44 @@ mkdir -p "$CEMU_HOME_CONFIG"
 if [ ! -f "${CEMU_CONFIG_ROOT}/settings.xml" ] && [ -n "$CEMU_DEFAULT_SETTINGS" ] && [ -f "$CEMU_DEFAULT_SETTINGS" ]; then
   cp "$CEMU_DEFAULT_SETTINGS" "${CEMU_CONFIG_ROOT}/settings.xml"
 fi
+
+normalize_audio_settings() {
+  settings="${CEMU_CONFIG_ROOT}/settings.xml"
+  [ "$CEMU_NORMALIZE_AUDIO_SETTINGS" = "1" ] || return 0
+  [ -f "$settings" ] || return 0
+  grep -q '<Audio>' "$settings" || return 0
+
+  tmp="${settings}.tmp.$$"
+  awk '
+    /<Audio>/ { in_audio = 1 }
+    in_audio && /^[[:space:]]*<api>.*<\/api>/ {
+      sub(/<api>.*<\/api>/, "<api>3</api>")
+    }
+    in_audio && /^[[:space:]]*<TVDevice>.*<\/TVDevice>/ {
+      sub(/<TVDevice>.*<\/TVDevice>/, "<TVDevice></TVDevice>")
+    }
+    in_audio && /^[[:space:]]*<PadDevice>.*<\/PadDevice>/ {
+      sub(/<PadDevice>.*<\/PadDevice>/, "<PadDevice></PadDevice>")
+    }
+    in_audio && /^[[:space:]]*<InputDevice>.*<\/InputDevice>/ {
+      sub(/<InputDevice>.*<\/InputDevice>/, "<InputDevice></InputDevice>")
+    }
+    { print }
+    /<\/Audio>/ { in_audio = 0 }
+  ' "$settings" > "$tmp"
+
+  if cmp -s "$settings" "$tmp"; then
+    rm -f "$tmp"
+    return 0
+  fi
+
+  backup="${settings}.bak.audio.$(date '+%Y%m%d-%H%M%S')"
+  cp -p "$settings" "$backup"
+  mv "$tmp" "$settings"
+  echo "cemu_audio_settings_normalized=$settings backup=$backup" >&2
+}
+
+normalize_audio_settings
 
 # Cemu expects ~/.local/share/Cemu. Preserve the existing ROCKNIX-compatible
 # config root by converting a real data directory once, then linking XDG data
@@ -58,4 +97,5 @@ fi
   echo "CEMU_HOME_CONFIG=$CEMU_HOME_CONFIG"
   echo "CEMU_HOME_LOCAL=$CEMU_HOME_LOCAL"
   echo "CEMU_BIOS_ROOT=$CEMU_BIOS_ROOT"
+  echo "CEMU_NORMALIZE_AUDIO_SETTINGS=$CEMU_NORMALIZE_AUDIO_SETTINGS"
 } >&2

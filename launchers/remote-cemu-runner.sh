@@ -23,6 +23,7 @@ RUNNER_POST_LAUNCH_DELAY="${RUNNER_POST_LAUNCH_DELAY:-15}"
 RUNNER_RESTORE_POWER="${RUNNER_RESTORE_POWER:-1}"
 RUNNER_LOCK_DIR="${RUNNER_LOCK_DIR:-/storage/.guest/runs/.remote-cemu-runner.lock}"
 RUNNER_SNAPSHOT_SETTINGS="${RUNNER_SNAPSHOT_SETTINGS:-1}"
+GUEST_SERVICE="${ROCKNIX_GUEST_SERVICE:-rocknix-guest.service}"
 # Optional build-parity hooks. RUNNER_CEMU_START points at a guest
 # launcher script (for example a per-run candidate wrapper) and is
 # threaded through MangoHud/gamescope wrappers via CEMU_START without
@@ -108,7 +109,7 @@ finish() {
 trap finish EXIT INT TERM
 
 guest_pid() {
-  main="$(systemctl show -p MainPID --value rocknix-guest-v2.service 2>/dev/null || true)"
+  main="$(systemctl show -p MainPID --value "$GUEST_SERVICE" 2>/dev/null || true)"
   [ -n "$main" ] && [ "$main" != "0" ] || return 1
   pgrep -P "$main" 2>/dev/null | head -1
 }
@@ -166,7 +167,7 @@ collect_host_state() {
       [ -n "$t" ] && [ -n "$v" ] && echo "$t $((v/1000))C"
     done | sort
     echo '=== service ==='
-    systemctl --no-pager --full status rocknix-guest-v2.service 2>/dev/null | sed -n '1,40p' || true
+    systemctl --no-pager --full status "$GUEST_SERVICE" 2>/dev/null | sed -n '1,40p' || true
   } > "$RUN_DIR/host-state.txt" 2>&1
 }
 
@@ -342,6 +343,18 @@ printf '=== cemu log tail ===\n'
 tail -240 /storage/.config/Cemu/share/log.txt 2>/dev/null || true
 printf '=== stdout log tail ===\n'
 tail -240 /storage/.guest/runs/cemu-stdout.log 2>/dev/null || true
+printf '=== audio runtime ===\n'
+export XDG_RUNTIME_DIR=/run/user/0
+export PULSE_SERVER=unix:/run/user/0/pulse/native
+if command -v wpctl >/dev/null 2>&1; then wpctl status 2>&1 || true; else echo 'missing wpctl'; fi
+if command -v pactl >/dev/null 2>&1; then
+  pactl info 2>&1 || true
+  pactl list sink-inputs short 2>&1 || true
+else
+  echo 'missing pactl'
+fi
+printf '=== cemu audio log lines ===\n'
+grep -Ei 'Cubeb|audio api|audio backend|sink|pulse|alsa|failed to find selected device|can.t create cubeb' /storage/.config/Cemu/share/log.txt /storage/.guest/runs/cemu-stdout.log 2>/dev/null | tail -120 || true
 EOF
   timeout 8 nsenter -t "$gp" -m -u -i -n -p -r -w /bin/sh -c "PATH=/run/current-system/sw/bin:/bin:/usr/bin; export XDG_RUNTIME_DIR=/run/user/0 WAYLAND_DISPLAY=wayland-1; grim -o DSI-2 '$RUN_DIR/screenshot-DSI2.png' 2>/dev/null || true" >/dev/null 2>&1 || true
 }

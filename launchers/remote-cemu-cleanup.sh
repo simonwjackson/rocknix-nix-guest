@@ -9,6 +9,8 @@ set -u
 PATH=/run/current-system/sw/bin:/usr/bin:/bin:/storage/.guest:$PATH
 export PATH
 
+GUEST_SERVICE="${ROCKNIX_GUEST_SERVICE:-rocknix-guest.service}"
+
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 
 pids_by_exact_comm() {
@@ -37,7 +39,7 @@ kill_exact_name() {
 }
 
 guest_pid() {
-  main="$(systemctl show -p MainPID --value rocknix-guest-v2.service 2>/dev/null || true)"
+  main="$(systemctl show -p MainPID --value "$GUEST_SERVICE" 2>/dev/null || true)"
   [ -n "$main" ] && [ "$main" != "0" ] || return 1
   pgrep -P "$main" 2>/dev/null | head -1
 }
@@ -115,11 +117,11 @@ kill_exact_name mangohud
 if mount | grep -q ' on /storage/machines/rocknix-guest/storage/.cache '; then
   log "WARN: guest root .cache appears to be a mountpoint"
 fi
-if systemctl is-active --quiet rocknix-guest-v2.service; then
+if systemctl is-active --quiet "$GUEST_SERVICE"; then
   log "guest service active"
 else
   log "guest service not active; starting"
-  systemctl start rocknix-guest-v2.service 2>/dev/null || true
+  systemctl start "$GUEST_SERVICE" 2>/dev/null || true
 fi
 
 if report_remaining_processes; then

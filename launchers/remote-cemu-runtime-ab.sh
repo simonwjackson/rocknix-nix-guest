@@ -28,13 +28,14 @@ TS="$(date '+%Y%m%d-%H%M%S')"
 PARENT_DIR="${RUNTIME_AB_RUN_DIR:-/storage/.guest/runs/${TS}-cemu-runtime-ab}"
 REPORT="$PARENT_DIR/report.md"
 SIGNAL_FILE="${LIVE_CHECKPOINT_FILE:-/storage/.guest/live-checkpoint}"
+GUEST_SERVICE="${ROCKNIX_GUEST_SERVICE:-rocknix-guest.service}"
 
 mkdir -p "$PARENT_DIR"
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$PARENT_DIR/status.log" >&2; }
 
 guest_pid() {
-  main="$(systemctl show -p MainPID --value rocknix-guest-v2.service 2>/dev/null || true)"
+  main="$(systemctl show -p MainPID --value "$GUEST_SERVICE" 2>/dev/null || true)"
   [ -n "$main" ] && [ "$main" != "0" ] || return 1
   pgrep -P "$main" 2>/dev/null | head -1
 }
@@ -134,6 +135,7 @@ matrix_mode() {
 ## Interpretation notes
 
 - Compare runs by live MangoHud/user-visible FPS when available. Loading/title samples are supportive only.
+- Audio candidates must also show Cubeb availability and a Cemu Pulse/PipeWire sink-input in the child run's guest audio evidence.
 - If the ROCKNIX-style candidate wins, promote it in a follow-up after one more live-in-game checkpoint.
 - If it does not win, continue toward shader/cache, storage latency, CPU scheduler/affinity, or Cemu AArch64 backend investigation.
 EOF
@@ -174,6 +176,13 @@ fi
 echo '=== title sample ==='
 SOCK=\$(ls /run/user/0/sway-ipc.0.*.sock 2>/dev/null | head -1 || true)
 [ -n "\$SOCK" ] && SWAYSOCK=\$SOCK swaymsg -t get_tree 2>/dev/null | grep '"name".*Cemu' | head -1 || true
+echo '=== audio runtime ==='
+export XDG_RUNTIME_DIR=/run/user/0
+export PULSE_SERVER=unix:/run/user/0/pulse/native
+command -v wpctl >/dev/null 2>&1 && wpctl status 2>&1 || true
+command -v pactl >/dev/null 2>&1 && { pactl info 2>&1 || true; pactl list sink-inputs short 2>&1 || true; } || true
+echo '=== cemu audio log lines ==='
+grep -Ei 'Cubeb|audio api|audio backend|sink|pulse|alsa|failed to find selected device|can.t create cubeb' /storage/.config/Cemu/share/log.txt /storage/.guest/runs/cemu-stdout.log 2>/dev/null | tail -120 || true
 EOF
     nsenter -t "$gp" -m -u -i -n -p -r -w /bin/sh -c "PATH=/run/current-system/sw/bin:/bin:/usr/bin; export XDG_RUNTIME_DIR=/run/user/0 WAYLAND_DISPLAY=wayland-1; grim -o DSI-2 '$child_dir/live-checkpoint/screenshot-DSI2.png' 2>/dev/null || true" >/dev/null 2>&1 || true
   fi
