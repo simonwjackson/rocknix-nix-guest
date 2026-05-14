@@ -103,6 +103,8 @@ jobs:
           cp "${src}" "${asset}"
           sha256sum "${asset}" > "${asset}.sha256"
           sha256="$(awk '{print $1}' "${asset}.sha256")"
+          split -b 1900m -d -a 2 "${asset}" "${asset}.part-"
+          rm -f "${asset}"
           cat > "dist/${{ steps.meta.outputs.asset_prefix }}.manifest.json" <<MANIFEST
           {
             "schema": "rocknix-guest-rootfs-seed/v1",
@@ -112,6 +114,7 @@ jobs:
             "git_ref": "${GITHUB_REF}",
             "release_tag": "${{ steps.meta.outputs.release_tag }}",
             "asset_name": "$(basename "${asset}")",
+            "asset_parts_glob": "$(basename "${asset}").part-*",
             "sha256": "${sha256}",
             "built_at": "$(date -u +%FT%TZ)"
           }
@@ -123,14 +126,22 @@ jobs:
             echo "Source SHA: \`${GITHUB_SHA}\`"
             echo "Device: \`${DEVICE}\`"
             echo "Package: \`${{ steps.meta.outputs.package }}\`"
-            echo "Asset: \`$(basename "${asset}")\`"
+            echo "Asset parts: \`$(basename "${asset}").part-*\`"
             echo "SHA256: \`${sha256}\`"
             echo
             echo "Host package.mk seed values:"
             echo
             echo '```sh'
             echo "PKG_NIX_GUEST_ROOTFS_SEED_REV=\"${GITHUB_SHA}\""
-            echo "PKG_NIX_GUEST_ROOTFS_SEED_URL=\"https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ steps.meta.outputs.release_tag }}/$(basename "${asset}")\""
+            echo "PKG_NIX_GUEST_ROOTFS_SEED_URL=\"\""
+            printf 'PKG_NIX_GUEST_ROOTFS_SEED_URLS="'
+            first=yes
+            for part in "${asset}".part-*; do
+              [ -e "${part}" ] || continue
+              if [ "${first}" = "yes" ]; then first=no; else printf ' '; fi
+              printf 'https://github.com/%s/releases/download/%s/%s' "${GITHUB_REPOSITORY}" "${{ steps.meta.outputs.release_tag }}" "$(basename "${part}")"
+            done
+            printf '"\n'
             echo "PKG_NIX_GUEST_ROOTFS_SEED_SHA256=\"${sha256}\""
             echo '```'
           } > "${notes_file}"

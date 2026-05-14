@@ -108,12 +108,14 @@ grep -q 'rootfs-odin2portal' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow must support Odin 2 Portal rootfs seed builds"
 grep -q 'sha256sum' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow must publish SHA256 material for host pinning"
+grep -q 'split -b 1900m' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must split release assets below GitHub's 2GB asset limit"
 grep -q '.manifest.json' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow must publish a manifest"
 grep -q 'softprops/action-gh-release' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow must publish GitHub Release assets"
-grep -q 'PKG_NIX_GUEST_ROOTFS_SEED_URL' "$ROOTFS_SEED_WORKFLOW" \
-  || fail "rootfs seed workflow release notes must print host package seed URL"
+grep -q 'PKG_NIX_GUEST_ROOTFS_SEED_URLS' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow release notes must print host package seed part URLs"
 grep -q 'PKG_NIX_GUEST_ROOTFS_SEED_SHA256' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow release notes must print host package seed SHA"
 grep -q 'runs-on: ubuntu-24.04-arm' "$ROOTFS_SEED_WORKFLOW" \
