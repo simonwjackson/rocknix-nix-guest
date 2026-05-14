@@ -110,7 +110,7 @@ grep -q 'sha256sum' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow must publish SHA256 material for host pinning"
 grep -q '.manifest.json' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow must publish a manifest"
-grep -q 'gh release create' "$ROOTFS_SEED_WORKFLOW" \
+grep -q 'softprops/action-gh-release' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow must publish GitHub Release assets"
 grep -q 'PKG_NIX_GUEST_ROOTFS_SEED_URL' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow release notes must print host package seed URL"

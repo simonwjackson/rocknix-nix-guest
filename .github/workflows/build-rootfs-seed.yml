@@ -116,6 +116,24 @@ jobs:
             "built_at": "$(date -u +%FT%TZ)"
           }
           MANIFEST
+          notes_file="dist/release-notes.md"
+          {
+            echo "# ROCKNIX guest rootfs seed ${DEVICE} ${{ steps.meta.outputs.short_sha }}"
+            echo
+            echo "Source SHA: \`${GITHUB_SHA}\`"
+            echo "Device: \`${DEVICE}\`"
+            echo "Package: \`${{ steps.meta.outputs.package }}\`"
+            echo "Asset: \`$(basename "${asset}")\`"
+            echo "SHA256: \`${sha256}\`"
+            echo
+            echo "Host package.mk seed values:"
+            echo
+            echo '```sh'
+            echo "PKG_NIX_GUEST_ROOTFS_SEED_REV=\"${GITHUB_SHA}\""
+            echo "PKG_NIX_GUEST_ROOTFS_SEED_URL=\"https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ steps.meta.outputs.release_tag }}/$(basename "${asset}")\""
+            echo "PKG_NIX_GUEST_ROOTFS_SEED_SHA256=\"${sha256}\""
+            echo '```'
+          } > "${notes_file}"
           echo "asset=${asset}" >> "${GITHUB_OUTPUT}"
           echo "sha256=${sha256}" >> "${GITHUB_OUTPUT}"
           echo "asset_name=$(basename "${asset}")" >> "${GITHUB_OUTPUT}"
@@ -130,35 +148,11 @@ jobs:
 
       - name: Publish GitHub Release
         if: github.ref_type == 'tag' || inputs.publish_release == true
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag="${{ steps.meta.outputs.release_tag }}"
-          title="ROCKNIX guest rootfs seed ${DEVICE} ${{ steps.meta.outputs.short_sha }}"
-          notes_file="dist/release-notes.md"
-          {
-            echo "# ${title}"
-            echo
-            echo "Source SHA: \`${GITHUB_SHA}\`"
-            echo "Device: \`${DEVICE}\`"
-            echo "Package: \`${{ steps.meta.outputs.package }}\`"
-            echo "Asset: \`${{ steps.stage.outputs.asset_name }}\`"
-            echo "SHA256: \`${{ steps.stage.outputs.sha256 }}\`"
-            echo
-            echo "Host package.mk seed values:"
-            echo
-            echo '```sh'
-            echo "PKG_NIX_GUEST_ROOTFS_SEED_REV=\"${GITHUB_SHA}\""
-            echo "PKG_NIX_GUEST_ROOTFS_SEED_URL=\"https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${{ steps.stage.outputs.asset_name }}\""
-            echo "PKG_NIX_GUEST_ROOTFS_SEED_SHA256=\"${{ steps.stage.outputs.sha256 }}\""
-            echo '```'
-          } > "${notes_file}"
-
-          if gh release view "${tag}" >/dev/null 2>&1; then
-            gh release upload "${tag}" dist/* --clobber
-          else
-            gh release create "${tag}" dist/* \
-              --target "${GITHUB_SHA}" \
-              --title "${title}" \
-              --notes-file "${notes_file}"
-          fi
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
+          name: ROCKNIX guest rootfs seed ${{ steps.meta.outputs.device }} ${{ steps.meta.outputs.short_sha }}
+          body_path: dist/release-notes.md
+          files: dist/*
+          fail_on_unmatched_files: true
