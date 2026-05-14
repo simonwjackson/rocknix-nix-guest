@@ -54,7 +54,6 @@
           system = targetSystem;
           modules = [
             korri.nixosModules.korri-frontend
-            korri.nixosModules.korri-inputd
             ./profiles/main-space.nix
             deviceProfile
             (
@@ -64,21 +63,9 @@
                   enable = true;
                   package = korri.packages.${targetSystem}.korri-desktop-odin;
 
-                  inputd = {
-                    enable = true;
-                    package = korri.packages.${targetSystem}.korri-inputd;
-                    port = 3002;
-                    wants = [ "inputplumber.service" ];
-                    after = [ "inputplumber.service" ];
-                    before = [ "rocknix-sway-kiosk.service" ];
-                  };
                 };
 
-                systemd.services.rocknix-sway-kiosk = {
-                  path = [ config.services.korri.package ];
-                  wants = [ "korri-inputd.service" ];
-                  after = [ "korri-inputd.service" ];
-                };
+                systemd.services.rocknix-sway-kiosk.path = [ config.services.korri.package ];
 
                 # Keep the emulator package source of truth in this guest flake so
                 # profile composition, package derivations, and launch adapters are

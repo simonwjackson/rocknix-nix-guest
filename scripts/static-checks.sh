@@ -52,22 +52,14 @@ grep -q '(packageSetFor targetSystem).steam' "$ROOT/flake.nix" \
   || fail "main-space guest must install in-repo Steam package helpers"
 grep -q 'korri.nixosModules.korri-frontend' "$ROOT/flake.nix" \
   || fail "main-space guest must import the Korri-owned frontend NixOS module"
-grep -q 'korri.nixosModules.korri-inputd' "$ROOT/flake.nix" \
-  || fail "main-space guest must import the Korri-owned inputd NixOS module"
 grep -q 'services.korri = {' "$ROOT/flake.nix" \
   || fail "main-space guest must configure Korri through the Korri-owned module"
 grep -A4 'services.korri = {' "$ROOT/flake.nix" | grep -q 'enable = true;' \
   || fail "main-space guest must enable Korri through services.korri"
 grep -A4 'services.korri = {' "$ROOT/flake.nix" | grep -q 'korri.packages.${targetSystem}.korri-desktop-odin' \
   || fail "main-space guest must use Korri's Odin desktop package variant until Korri publishes a device alias"
-grep -q 'inputd = {' "$ROOT/flake.nix" \
-  || fail "main-space guest must configure Korri inputd through the Korri-owned module"
-grep -q 'korri.packages.${targetSystem}.korri-inputd' "$ROOT/flake.nix" \
-  || fail "main-space guest must use Korri's inputd package"
 grep -q 'path = \[ config.services.korri.package \];' "$ROOT/flake.nix" \
   || fail "sway kiosk service PATH must include the configured Korri package"
-grep -q 'korri-inputd.service' "$ROOT/flake.nix" \
-  || fail "sway kiosk service must order against Korri inputd"
 grep -q 'rocknix-guest-main-space-thor' "$ROOT/flake.nix" \
   || fail "guest flake must expose a Thor main-space configuration"
 grep -q 'rocknix-guest-main-space-odin2portal' "$ROOT/flake.nix" \
