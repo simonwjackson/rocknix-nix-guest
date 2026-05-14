@@ -63,6 +63,12 @@ grep -q 'rocknix-guest-main-space-thor' "$ROOT/flake.nix" \
   || fail "guest flake must expose a Thor main-space configuration"
 grep -q 'rocknix-guest-main-space-odin2portal' "$ROOT/flake.nix" \
   || fail "guest flake must expose an Odin 2 Portal main-space configuration"
+grep -q 'rocknix-guest-stage10-proof-thor' "$ROOT/flake.nix" \
+  || fail "guest flake must expose a Thor Stage 10 proof configuration"
+grep -q 'rocknix-guest-stage10-proof-odin2portal' "$ROOT/flake.nix" \
+  || fail "guest flake must expose an Odin 2 Portal Stage 10 proof configuration"
+grep -q 'rocknix-stage10-proof-marker' "$ROOT/flake.nix" \
+  || fail "Stage 10 proof configurations must include the guest-owned proof marker"
 grep -q 'rocknix-guest-main-space-by-compatible' "$ROOT/flake.nix" \
   || fail "guest flake must expose rocknix-guest-main-space-by-compatible (host-promoter device-id dispatch entry point)"
 grep -q 'deviceProfileByCompatible' "$ROOT/flake.nix" \

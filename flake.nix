@@ -49,7 +49,7 @@
         modules = [ ./rocknix-guest.nix ];
       };
       mainSpaceConfigurationFor =
-        deviceProfile:
+        deviceProfile: extraModules:
         nixpkgs.lib.nixosSystem {
           system = targetSystem;
           modules = [
@@ -76,10 +76,21 @@
                 ];
               }
             )
-          ];
+          ] ++ extraModules;
         };
-      mainSpaceThorConfiguration = mainSpaceConfigurationFor ./profiles/devices/thor.nix;
-      mainSpaceOdin2PortalConfiguration = mainSpaceConfigurationFor ./profiles/devices/odin2portal.nix;
+      stage10ProofModule =
+        { ... }:
+        {
+          environment.etc."rocknix-stage10-proof-marker".text = ''
+            ROCKNIX Stage 10 generation-switch proof marker
+            source=rocknix-nix-guest
+            target=explicit-sm8550-proof
+          '';
+        };
+      mainSpaceThorConfiguration = mainSpaceConfigurationFor ./profiles/devices/thor.nix [ ];
+      mainSpaceOdin2PortalConfiguration = mainSpaceConfigurationFor ./profiles/devices/odin2portal.nix [ ];
+      stage10ProofThorConfiguration = mainSpaceConfigurationFor ./profiles/devices/thor.nix [ stage10ProofModule ];
+      stage10ProofOdin2PortalConfiguration = mainSpaceConfigurationFor ./profiles/devices/odin2portal.nix [ stage10ProofModule ];
       # Backward-compatible alias: the production packaged rootfs remains the
       # hardware-validated Thor profile until host packaging selects a
       # device-specific rootfs explicitly.
@@ -125,7 +136,7 @@
           deviceProfileByCompatible.${compatible};
 
       mainSpaceByCompatibleConfiguration =
-        mainSpaceConfigurationFor selectDeviceProfileFromCompatible;
+        mainSpaceConfigurationFor selectDeviceProfileFromCompatible [ ];
       devEnvConfiguration = nixpkgs.lib.nixosSystem {
         system = targetSystem;
         modules = [ ./profiles/dev-env.nix ];
@@ -183,6 +194,8 @@
       nixosConfigurations.rocknix-guest-main-space = mainSpaceConfiguration;
       nixosConfigurations.rocknix-guest-main-space-thor = mainSpaceThorConfiguration;
       nixosConfigurations.rocknix-guest-main-space-odin2portal = mainSpaceOdin2PortalConfiguration;
+      nixosConfigurations.rocknix-guest-stage10-proof-thor = stage10ProofThorConfiguration;
+      nixosConfigurations.rocknix-guest-stage10-proof-odin2portal = stage10ProofOdin2PortalConfiguration;
       # Host-promoter entry point: picks the right per-device profile from
       # /proc/device-tree/compatible at eval time. Requires --impure on the
       # host. Keeps the device list and the per-device transforms in this

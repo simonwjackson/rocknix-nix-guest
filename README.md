@@ -37,6 +37,8 @@ Expected NixOS configurations:
 - `nixosConfigurations.rocknix-guest-main-space` (backward-compatible alias to Thor)
 - `nixosConfigurations.rocknix-guest-main-space-thor`
 - `nixosConfigurations.rocknix-guest-main-space-odin2portal`
+- `nixosConfigurations.rocknix-guest-stage10-proof-thor`
+- `nixosConfigurations.rocknix-guest-stage10-proof-odin2portal`
 - `nixosConfigurations.rocknix-guest-dev-env`
 
 Rootfs package outputs are exposed for `x86_64-linux` and `aarch64-linux` hosts:
