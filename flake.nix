@@ -84,6 +84,56 @@
       # hardware-validated Thor profile until host packaging selects a
       # device-specific rootfs explicitly.
       mainSpaceConfiguration = mainSpaceThorConfiguration;
+
+      # Single source of truth for device-tree compatible -> device profile
+      # mapping. Adding a new SM8550 device is one entry here plus a profile
+      # under profiles/devices/. The host substrate must not maintain a
+      # parallel device list; it asks for rocknix-guest-main-space-by-compatible
+      # below and this table picks the right profile from /proc/device-tree.
+      deviceProfileByCompatible = {
+        "ayn,thor" = ./profiles/devices/thor.nix;
+        "ayn,odin2portal" = ./profiles/devices/odin2portal.nix;
+      };
+
+      # Impure: reads /proc/device-tree/compatible from the live device
+      # (or guest namespace, which inherits the host DT). The host promoter
+      # must pass --impure to nix build. Off-device evaluation throws a
+      # clear error pointing at the explicit per-device attributes.
+      selectDeviceProfileFromCompatible =
+        let
+          compatPath = "/proc/device-tree/compatible";
+        in
+        if !(builtins.pathExists compatPath) then
+          throw ''
+            rocknix-nix-guest: /proc/device-tree/compatible is not present.
+            rocknix-guest-main-space-by-compatible can only be evaluated on
+            the target device (or inside its guest namespace). Use one of
+            the explicit per-device attributes off-device, e.g.:
+              nix build .#nixosConfigurations.rocknix-guest-main-space-odin2portal.config.system.build.toplevel
+          ''
+        else
+          let
+            raw = builtins.readFile compatPath;
+            nul = builtins.fromJSON ''"\u0000"'';
+            sep = "<<NUL>>";
+            flat = builtins.replaceStrings [ nul ] [ sep ] raw;
+            tokens = builtins.filter (s: builtins.isString s && s != "")
+              (builtins.split sep flat);
+            matches = builtins.filter
+              (t: builtins.hasAttr t deviceProfileByCompatible) tokens;
+          in
+          if matches == [ ] then
+            throw ''
+              rocknix-nix-guest: no guest profile registered for any of the
+              device-tree compatibles ${builtins.toJSON tokens}.
+              Add profiles/devices/<device>.nix and register its first DT
+              compatible string in deviceProfileByCompatible (flake.nix).
+            ''
+          else
+            deviceProfileByCompatible.${builtins.head matches};
+
+      mainSpaceByCompatibleConfiguration =
+        mainSpaceConfigurationFor selectDeviceProfileFromCompatible;
       devEnvConfiguration = nixpkgs.lib.nixosSystem {
         system = targetSystem;
         modules = [ ./profiles/dev-env.nix ];
@@ -141,6 +191,12 @@
       nixosConfigurations.rocknix-guest-main-space = mainSpaceConfiguration;
       nixosConfigurations.rocknix-guest-main-space-thor = mainSpaceThorConfiguration;
       nixosConfigurations.rocknix-guest-main-space-odin2portal = mainSpaceOdin2PortalConfiguration;
+      # Host-promoter entry point: picks the right per-device profile from
+      # /proc/device-tree/compatible at eval time. Requires --impure on the
+      # host. Keeps the device list and the per-device transforms in this
+      # repo, next to the profiles, so adding a device is a single-PR change.
+      nixosConfigurations.rocknix-guest-main-space-by-compatible =
+        mainSpaceByCompatibleConfiguration;
       nixosConfigurations.rocknix-guest-dev-env = devEnvConfiguration;
       packages = forAllHostSystems (
         hostSystem:

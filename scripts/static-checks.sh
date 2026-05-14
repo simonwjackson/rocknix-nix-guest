@@ -63,6 +63,19 @@ grep -q 'rocknix-guest-main-space-thor' "$ROOT/flake.nix" \
   || fail "guest flake must expose a Thor main-space configuration"
 grep -q 'rocknix-guest-main-space-odin2portal' "$ROOT/flake.nix" \
   || fail "guest flake must expose an Odin 2 Portal main-space configuration"
+grep -q 'rocknix-guest-main-space-by-compatible' "$ROOT/flake.nix" \
+  || fail "guest flake must expose rocknix-guest-main-space-by-compatible (host-promoter device-id dispatch entry point)"
+grep -q 'deviceProfileByCompatible' "$ROOT/flake.nix" \
+  || fail "guest flake must define deviceProfileByCompatible dispatch table for host-side device selection"
+grep -q '"ayn,thor" = ./profiles/devices/thor.nix' "$ROOT/flake.nix" \
+  || fail "deviceProfileByCompatible must register Thor (ayn,thor) -> profiles/devices/thor.nix"
+grep -q '"ayn,odin2portal" = ./profiles/devices/odin2portal.nix' "$ROOT/flake.nix" \
+  || fail "deviceProfileByCompatible must register Odin 2 Portal (ayn,odin2portal) -> profiles/devices/odin2portal.nix"
+grep -q '/proc/device-tree/compatible' "$ROOT/flake.nix" \
+  || fail "by-compatible dispatch must read /proc/device-tree/compatible"
+tr -s '[:space:]' ' ' < "$ROOT/flake.nix" \
+  | grep -q 'mainSpaceByCompatibleConfiguration = mainSpaceConfigurationFor selectDeviceProfileFromCompatible' \
+  || fail "by-compatible NixOS configuration must be built from selectDeviceProfileFromCompatible"
 grep -q '"rootfs-odin2portal"' "$ROOT/flake.nix" \
   || fail "guest flake must expose an Odin 2 Portal rootfs package"
 grep -q 'output DSI-1 transform 270' "$ROOT/profiles/devices/odin2portal.nix" \

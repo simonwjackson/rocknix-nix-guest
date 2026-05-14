@@ -28,9 +28,21 @@ In:
 - `rocknix-guest-promote.service` applies the packaged guest revision to the
   persistent guest rootfs after the old guest boots: it stages
   `/usr/lib/nix-integration/guest` under `/storage/.guest`, builds
-  `rocknix-guest-main-space` inside the guest namespace, updates
-  `/nix/var/nix/profiles/system`, records `/etc/rocknix-guest-revision`, and
-  restarts the guest once so PID 1 boots the promoted generation.
+  `rocknix-guest-main-space-by-compatible` inside the guest namespace with
+  `--impure`, updates the selected and legacy NixOS system profiles, records
+  `/etc/rocknix-guest-revision`, and restarts the guest once so PID 1 boots
+  the promoted generation.
+- The `rocknix-guest-main-space-by-compatible` flake attribute is the
+  host-promoter entry point. It reads `/proc/device-tree/compatible` from
+  the running device (visible inside the guest namespace) and selects the
+  matching profile from the `deviceProfileByCompatible` table in `flake.nix`.
+  Adding a new SM8550 device is a single-PR change in this repo: add
+  `profiles/devices/<device>.nix` and one entry mapping the device's first
+  device-tree `compatible` string to that profile. The host substrate must
+  not maintain a parallel device list. Off-device evaluation must use the
+  explicit `rocknix-guest-main-space-<device>` attributes; the by-compatible
+  attribute throws a clear error pointing at them when
+  `/proc/device-tree/compatible` is absent.
 - `rocknix-recovery-toggle.service` is the explicit safety net: `/flash/rocknix.no-nspawn`
   or `rocknix.safe=1` routes boot to the legacy ROCKNIX target.
 - Guest NixOS modules own main-space behavior: display/Sway, audio/PipeWire,
