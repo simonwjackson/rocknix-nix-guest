@@ -131,16 +131,30 @@ fi
 export XDG_RUNTIME_DIR=/run/user/0
 export WAYLAND_DISPLAY=wayland-1
 
+quote_for_sway_exec() {
+  printf "'"
+  printf '%s' "$1" | sed "s/'/'\\\\''/g"
+  printf "'"
+}
+
+CEMU_EXEC="/storage/.guest/start_cemu_guest.sh $(quote_for_sway_exec "$ROM")"
+if [ -n "${CEMU_BIN:-}" ]; then
+  # swaymsg exec inherits Sway's session environment, not this shell's
+  # diagnostic overrides. Carry CEMU_BIN explicitly so BOTW validation can
+  # exercise an imported candidate before it is promoted.
+  CEMU_EXEC="env CEMU_BIN=$(quote_for_sway_exec "$CEMU_BIN") $CEMU_EXEC"
+fi
+
 # Make sure cemu lands on DSI-2 (top main screen). Workspace 1 is on
 # DSI-2 by sway's default placement; focus it before exec.
 SOCK=$(ls "$XDG_RUNTIME_DIR"/sway-ipc.0.*.sock 2>/dev/null | head -1 || true)
 if [ -n "$SOCK" ]; then
   if command -v timeout >/dev/null 2>&1; then
     SWAYSOCK="$SOCK" timeout 5s swaymsg "focus output DSI-2" >/dev/null 2>&1 || true
-    SWAYSOCK="$SOCK" timeout 5s swaymsg "exec /storage/.guest/start_cemu_guest.sh '$ROM'" >/dev/null 2>&1 || true
+    SWAYSOCK="$SOCK" timeout 5s swaymsg "exec $CEMU_EXEC" >/dev/null 2>&1 || true
   else
     SWAYSOCK="$SOCK" swaymsg "focus output DSI-2" >/dev/null 2>&1 || true
-    SWAYSOCK="$SOCK" swaymsg "exec /storage/.guest/start_cemu_guest.sh '$ROM'" >/dev/null 2>&1 || true
+    SWAYSOCK="$SOCK" swaymsg "exec $CEMU_EXEC" >/dev/null 2>&1 || true
   fi
 fi
 

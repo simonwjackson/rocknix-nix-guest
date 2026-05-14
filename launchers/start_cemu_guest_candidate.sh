@@ -4,7 +4,7 @@
 set -eu
 
 if [ -z "${CEMU_BIN:-}" ]; then
-  echo "usage: CEMU_BIN=/nix/store/.../bin/Cemu start_cemu_guest_candidate.sh <rom> [system]" >&2
+  echo "usage: CEMU_BIN=/nix/store/.../bin/cemu start_cemu_guest_candidate.sh <rom> [system]" >&2
   exit 2
 fi
 

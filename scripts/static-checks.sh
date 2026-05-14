@@ -368,6 +368,10 @@ grep -q '<TVDevice></TVDevice>' "$ROOT/launchers/cemu-storage-adapter.sh" \
   || fail "Cemu audio migration must clear stale TV device IDs"
 grep -q 'cemu-sm8550-performance.sh' "$ROOT/launchers/botw-guest.sh" \
   || fail "botw-guest.sh must delegate SM8550 performance policy"
+grep -q 'quote_for_sway_exec' "$ROOT/launchers/botw-guest.sh" \
+  || fail "botw-guest.sh must quote ROM/CEMU_BIN values passed through swaymsg exec"
+grep -q 'env CEMU_BIN=' "$ROOT/launchers/botw-guest.sh" \
+  || fail "botw-guest.sh must preserve candidate CEMU_BIN overrides across swaymsg exec"
 ! grep -q 'P3_MAX=\|GPU_MIN=\|taskset -p' "$ROOT/launchers/botw-guest.sh" \
   || fail "botw-guest.sh must not own CPU/GPU/affinity policy directly"
 grep -q 'AFFINITY_MASK="${CEMU_AFFINITY_MASK:-0xF8}"' "$ROOT/launchers/cemu-sm8550-performance.sh" \

@@ -9,14 +9,14 @@ or host Cemu binaries.
 
 | Script | Role |
 |---|---|
-| `start_cemu_guest.sh` | Thin compatibility launcher. Selects promoted/override Cemu, normalizes real-binary overrides back to package-owned `bin/cemu` when available, requires guest-session env, delegates user-data layout to `cemu-storage-adapter.sh`, then execs Cemu fullscreen with the requested ROM. |
+| `start_cemu_guest.sh` | Thin compatibility launcher. Selects promoted/override Cemu, normalizes real-binary overrides back to package-owned `bin/cemu` when available, requires guest-session env, prewarms xdg-desktop-portal with the Sway/Wayland activation environment, delegates user-data layout to `cemu-storage-adapter.sh`, then execs Cemu fullscreen with the requested ROM. |
 | `cemu-storage-adapter.sh` | Guest-owned `/storage` compatibility adapter. Idempotently preserves existing Cemu settings/saves/keys/MLC layout under XDG paths and `/storage/roms/bios/cemu`; normalizes stale audio device IDs with a backup; never part of the generic package wrapper. |
 | `cemu-sm8550-performance.sh` | Guest/session-owned SM8550 Cemu performance profile. Applies measured CPU caps, best-effort GPU devfreq policy, and Cemu thread affinity; generic package wrapper never owns this device policy. |
 | `start_cemu_guest_mangohud.sh` | Nix MangoHud wrapper around `start_cemu_guest.sh`. Diagnostic/profile mode only. |
 | `start_cemu_guest_gamescope.sh` | Nix gamescope wrapper matching the host 360p/540p -> 1080p FSR pipeline shape. Diagnostic/profile mode until validated. |
 | `start_cemu_guest_rocknixmesa.sh` | Diagnostic-only launcher using the ROCKNIX Mesa ICD with a narrow dependency shim while keeping Cemu's Nix Vulkan loader. Do not productize as the final Nix runtime. |
 | `start_cemu_guest_candidate.sh` | Diagnostic wrapper that runs a caller-selected guest-native Cemu binary via `CEMU_BIN` while preserving the normal guest config/cache setup. |
-| `botw-guest.sh <profile>` | Parametric BOTW launcher. One profile per resolution / FPS combo. Mutates `settings.xml` via guest-available Perl, tunes CPU/GPU sysfs, calls `start_cemu_guest.sh`, then blocks until cemu exits. Replaces all 11 host `/storage/bin/botw-*.sh` scripts. |
+| `botw-guest.sh <profile>` | Parametric BOTW launcher. One profile per resolution / FPS combo. Mutates `settings.xml` via guest-available Perl, tunes CPU/GPU sysfs, carries diagnostic `CEMU_BIN` overrides through `swaymsg exec`, calls `start_cemu_guest.sh`, then blocks until cemu exits. Replaces all 11 host `/storage/bin/botw-*.sh` scripts. |
 | `games-launcher.sh` | Touch-friendly fuzzel menu pinned to DSI-1 (Thor's bottom panel). Kept available, but not autostarted while touch/menu behavior is under validation. |
 | `host-tune.sh` | Temporary host-side sysfs tuning helper. Runs on ROCKNIX host only for privileged controls the guest cannot safely own yet, especially GPU devfreq. |
 | `remote-cemu-cleanup.sh` | Host-side cleanup script for unattended Cemu/gamescope experiments. Kills exact process names and closes stale guest Sway Cemu windows. |
@@ -86,7 +86,7 @@ Import and promote only a validated `cemu` output from this flake:
 
 The helper installs the package output into a dedicated Nix profile/GC root and refuses outputs that lack the direct package's `nix-support/rocknix-cemu-build/vulkan-loader-lib-path`, `audio-backend-lib-path`, and `cubeb-backend-evidence.txt` evidence. The launcher resolves the profile symlink with `readlink -f` before reading package metadata, so Vulkan/audio backend discovery still comes from the real store output.
 
-Build-parity diagnostics may override the binary with `CEMU_BIN` via `start_cemu_guest_candidate.sh`; this keeps settings, saves, XDG paths, and logging identical while changing only the Cemu binary under test. Do not use `CEMU_BIN` to point at host `/usr/bin/cemu` as a product path; host binaries are diagnostic controls only and must not become the Layer 14 runtime contract.
+Build-parity diagnostics may override the binary with `CEMU_BIN` via `start_cemu_guest_candidate.sh` or `botw-guest.sh`; both preserve the normal guest config/cache setup while changing only the Cemu package under test. Prefer the package wrapper path (`/nix/store/.../bin/cemu`) so Vulkan/audio runtime setup remains package-owned. Do not use `CEMU_BIN` to point at host `/usr/bin/cemu` as a product path; host binaries are diagnostic controls only and must not become the Layer 14 runtime contract.
 
 The Cemu package is built as `cemu` in this flake and installed into `rocknix-guest-main-space`. Build it on Fuji or another aarch64 builder, import its closure into the Thor guest store when Thor is back online, fingerprint it, live-test it against same-session host control, then promote a rollback profile with `remote-cemu-promote.sh` only when needed.
 
