@@ -28,12 +28,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: rootfs-seed-${{ github.ref }}-${{ inputs.device || 'thor' }}
+  group: rootfs-seed-${{ github.ref }}-${{ inputs.device || 'tag' }}
   cancel-in-progress: false
 
 jobs:
   build-rootfs-seed:
-    name: Build ${{ inputs.device || 'thor' }} rootfs seed
+    name: Build rootfs seed
     runs-on: ubuntu-24.04
     env:
       DEVICE: ${{ inputs.device || 'thor' }}
@@ -62,11 +62,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "${DEVICE}" in
+          device="${DEVICE}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            case "${GITHUB_REF_NAME}" in
+              rootfs-seed-odin2portal-*) device="odin2portal" ;;
+              rootfs-seed-thor-*) device="thor" ;;
+            esac
+          fi
+
+          case "${device}" in
             thor) package="rootfs-thor" ;;
             odin2portal) package="rootfs-odin2portal" ;;
-            *) echo "unsupported device: ${DEVICE}" >&2; exit 1 ;;
+            *) echo "unsupported device: ${device}" >&2; exit 1 ;;
           esac
+          echo "DEVICE=${device}" >> "${GITHUB_ENV}"
 
           short_sha="${GITHUB_SHA::12}"
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
@@ -77,10 +86,11 @@ jobs:
             release_tag="rootfs-seed-${short_sha}"
           fi
 
+          echo "device=${device}" >> "${GITHUB_OUTPUT}"
           echo "package=${package}" >> "${GITHUB_OUTPUT}"
           echo "short_sha=${short_sha}" >> "${GITHUB_OUTPUT}"
           echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
-          echo "asset_prefix=rocknix-guest-rootfs-${DEVICE}-${short_sha}" >> "${GITHUB_OUTPUT}"
+          echo "asset_prefix=rocknix-guest-rootfs-${device}-${short_sha}" >> "${GITHUB_OUTPUT}"
 
       - name: Run static checks
         run: ./scripts/static-checks.sh
