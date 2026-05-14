@@ -95,42 +95,34 @@
         "ayn,odin2portal" = ./profiles/devices/odin2portal.nix;
       };
 
-      # Impure: reads /proc/device-tree/compatible from the live device
-      # (or guest namespace, which inherits the host DT). The host promoter
-      # must pass --impure to nix build. Off-device evaluation throws a
-      # clear error pointing at the explicit per-device attributes.
+      # Impure: reads the target device-compatible string from the host
+      # promoter via ROCKNIX_GUEST_DEVICE_COMPATIBLE. Device-tree compatible
+      # properties are NUL-delimited; Nix strings cannot represent NUL bytes,
+      # so the host substrate normalizes /proc/device-tree/compatible before
+      # evaluation. Off-device evaluation should use explicit per-device
+      # attributes instead.
       selectDeviceProfileFromCompatible =
         let
-          compatPath = "/proc/device-tree/compatible";
+          compatible = builtins.getEnv "ROCKNIX_GUEST_DEVICE_COMPATIBLE";
         in
-        if !(builtins.pathExists compatPath) then
+        if compatible == "" then
           throw ''
-            rocknix-nix-guest: /proc/device-tree/compatible is not present.
-            rocknix-guest-main-space-by-compatible can only be evaluated on
-            the target device (or inside its guest namespace). Use one of
-            the explicit per-device attributes off-device, e.g.:
+            rocknix-nix-guest: ROCKNIX_GUEST_DEVICE_COMPATIBLE is not set.
+            rocknix-guest-main-space-by-compatible requires the host substrate
+            to normalize /proc/device-tree/compatible and pass a single
+            compatible string. Use one of the explicit per-device attributes
+            off-device, e.g.:
               nix build .#nixosConfigurations.rocknix-guest-main-space-odin2portal.config.system.build.toplevel
           ''
+        else if !(builtins.hasAttr compatible deviceProfileByCompatible) then
+          throw ''
+            rocknix-nix-guest: no guest profile registered for device-tree
+            compatible ${builtins.toJSON compatible}.
+            Add profiles/devices/<device>.nix and register its first DT
+            compatible string in deviceProfileByCompatible (flake.nix).
+          ''
         else
-          let
-            raw = builtins.readFile compatPath;
-            nul = builtins.fromJSON ''"\u0000"'';
-            sep = "<<NUL>>";
-            flat = builtins.replaceStrings [ nul ] [ sep ] raw;
-            tokens = builtins.filter (s: builtins.isString s && s != "")
-              (builtins.split sep flat);
-            matches = builtins.filter
-              (t: builtins.hasAttr t deviceProfileByCompatible) tokens;
-          in
-          if matches == [ ] then
-            throw ''
-              rocknix-nix-guest: no guest profile registered for any of the
-              device-tree compatibles ${builtins.toJSON tokens}.
-              Add profiles/devices/<device>.nix and register its first DT
-              compatible string in deviceProfileByCompatible (flake.nix).
-            ''
-          else
-            deviceProfileByCompatible.${builtins.head matches};
+          deviceProfileByCompatible.${compatible};
 
       mainSpaceByCompatibleConfiguration =
         mainSpaceConfigurationFor selectDeviceProfileFromCompatible;
