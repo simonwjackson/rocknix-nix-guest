@@ -116,8 +116,8 @@ grep -q 'PKG_NIX_GUEST_ROOTFS_SEED_URL' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow release notes must print host package seed URL"
 grep -q 'PKG_NIX_GUEST_ROOTFS_SEED_SHA256' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow release notes must print host package seed SHA"
-grep -q 'docker/setup-qemu-action' "$ROOTFS_SEED_WORKFLOW" \
-  || fail "rootfs seed workflow must register aarch64 binfmt for x86_64 runners"
+grep -q 'runs-on: ubuntu-24.04-arm' "$ROOTFS_SEED_WORKFLOW" \
+  || fail "rootfs seed workflow must use a native arm64 runner for rootfs builds"
 grep -q 'actions/upload-artifact' "$ROOTFS_SEED_WORKFLOW" \
   || fail "rootfs seed workflow must upload inspection artifacts even when not publishing a release"
 grep -q 'Publishing first-boot rootfs seed artifacts' "$ROOT/README.md" \
@@ -321,6 +321,7 @@ for launcher in \
   remote-cemu-build-fingerprint.sh \
   remote-cemu-cleanup.sh \
   remote-cemu-live-campaign.sh \
+  remote-cemu-import.sh \
   remote-cemu-promote.sh \
   remote-cemu-runner.sh \
   remote-cemu-runtime-ab.sh \
@@ -347,6 +348,12 @@ grep -q 'cemu-storage-adapter.sh' "$ROOT/launchers/start_cemu_guest.sh" \
   || fail "start_cemu_guest.sh must delegate Cemu /storage layout to cemu-storage-adapter.sh"
 grep -q 'CEMU_DEFAULT_SETTINGS' "$ROOT/launchers/cemu-storage-adapter.sh" \
   || fail "cemu-storage-adapter.sh must own fresh-state settings seeding"
+grep -q 'normalize_audio_settings' "$ROOT/launchers/cemu-storage-adapter.sh" \
+  || fail "cemu-storage-adapter.sh must normalize stale Cemu audio device settings"
+grep -q 'bak.audio' "$ROOT/launchers/cemu-storage-adapter.sh" \
+  || fail "cemu-storage-adapter.sh must back up settings before audio migration"
+grep -q '<TVDevice></TVDevice>' "$ROOT/launchers/cemu-storage-adapter.sh" \
+  || fail "Cemu audio migration must clear stale TV device IDs"
 grep -q 'cemu-sm8550-performance.sh' "$ROOT/launchers/botw-guest.sh" \
   || fail "botw-guest.sh must delegate SM8550 performance policy"
 ! grep -q 'P3_MAX=\|GPU_MIN=\|taskset -p' "$ROOT/launchers/botw-guest.sh" \
@@ -355,12 +362,40 @@ grep -q 'AFFINITY_MASK="${CEMU_AFFINITY_MASK:-0xF8}"' "$ROOT/launchers/cemu-sm85
   || fail "cemu-sm8550-performance.sh must own default Cemu big-core affinity policy"
 grep -q 'temporary host adapter' "$ROOT/launchers/host-tune.sh" \
   || fail "host-tune.sh must document temporary host-adapter status"
+for cemu_remote in remote-cemu-build-fingerprint.sh remote-cemu-cleanup.sh remote-cemu-runner.sh remote-cemu-runtime-ab.sh remote-cemu-promote.sh; do
+  grep -q 'GUEST_SERVICE="${ROCKNIX_GUEST_SERVICE:-rocknix-guest.service}"' "$ROOT/launchers/$cemu_remote" \
+    || fail "$cemu_remote must default to current rocknix-guest.service with override"
+done
+grep -q 'pactl list sink-inputs short' "$ROOT/launchers/remote-cemu-runner.sh" \
+  || fail "remote Cemu runner must collect Pulse/PipeWire sink-input evidence"
+grep -q 'cubeb-backend-evidence.txt' "$ROOT/launchers/remote-cemu-build-fingerprint.sh" \
+  || fail "Cemu build fingerprint must report Cubeb backend evidence"
+grep -q 'remote-cemu-import.sh' "$ROOT/launchers/remote-cemu-promote.sh" \
+  || fail "Cemu promotion help must point to candidate closure import helper"
 
 # Package contracts migrated from the former package-only repo.
 grep -F -q 'exec "\$cemu_wrapper_dir/Cemu"' "$ROOT/packages/cemu/package.nix" \
   || fail "package wrapper must exec real Cemu binary"
 grep -q 'vulkan_loader_lib_path=' "$ROOT/packages/cemu/package.nix" \
   || fail "package wrapper must own Vulkan loader path"
+grep -q 'audio_backend_lib_path=' "$ROOT/packages/cemu/package.nix" \
+  || fail "package wrapper must expose Pulse/ALSA backend library path for bundled Cubeb"
+grep -q 'libpulseaudio' "$ROOT/packages/cemu/package.nix" \
+  || fail "Cemu package must include Pulse headers/runtime for bundled Cubeb"
+grep -q 'alsa-lib' "$ROOT/packages/cemu/package.nix" \
+  || fail "Cemu package must include ALSA headers/runtime for bundled Cubeb fallback"
+grep -q 'USE_PULSE' "$ROOT/packages/cemu/package.nix" \
+  || fail "Cemu package must gate on bundled Cubeb Pulse backend evidence"
+grep -q 'USE_ALSA' "$ROOT/packages/cemu/package.nix" \
+  || fail "Cemu package must gate on bundled Cubeb ALSA backend evidence"
+grep -q 'cubeb_pulse.c' "$ROOT/packages/cemu/package.nix" \
+  || fail "Cemu package must prove bundled Cubeb Pulse source was compiled"
+grep -q 'cubeb_alsa.c' "$ROOT/packages/cemu/package.nix" \
+  || fail "Cemu package must prove bundled Cubeb ALSA source was compiled"
+grep -q 'cubeb-backend-evidence.txt' "$ROOT/packages/cemu/package.nix" \
+  || fail "Cemu package must persist Cubeb backend evidence"
+grep -q 'cubeb-backend-strings.txt' "$ROOT/packages/cemu/package.nix" \
+  || fail "Cemu package must persist Cubeb runtime string evidence"
 grep -q 'SDL_VIDEO_ALLOW_SCREENSAVER' "$ROOT/packages/cemu/package.nix" \
   || fail "package wrapper must own SDL screensaver guard"
 grep -q 'ROCKNIX cemu-sa package contract' "$ROOT/packages/cemu/manifest.nix" \
