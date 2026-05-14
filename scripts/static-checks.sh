@@ -348,6 +348,16 @@ grep -q 'REQUESTED_CEMU=${CEMU_BIN:-$SYSTEM_CEMU}' "$ROOT/launchers/start_cemu_g
   || fail "start_cemu_guest.sh must not own Vulkan loader setup"
 grep -q 'cemu-storage-adapter.sh' "$ROOT/launchers/start_cemu_guest.sh" \
   || fail "start_cemu_guest.sh must delegate Cemu /storage layout to cemu-storage-adapter.sh"
+grep -q 'bootstrap_session_portals' "$ROOT/launchers/start_cemu_guest.sh" \
+  || fail "start_cemu_guest.sh must prewarm session portals before wxGTK startup"
+grep -q 'dbus-update-activation-environment --systemd' "$ROOT/launchers/start_cemu_guest.sh" \
+  || fail "start_cemu_guest.sh must import the Sway env for D-Bus activation"
+grep -q 'rocknix-portal-bootstrap' "$ROOT/profiles/main-space.nix" \
+  || fail "main-space profile must bootstrap xdg-desktop-portal from the Sway session"
+grep -q 'exec_always ${portalBootstrap}' "$ROOT/profiles/main-space.nix" \
+  || fail "main-space sway config must run the portal bootstrap after compositor startup"
+grep -q 'XDG_CURRENT_DESKTOP = "sway"' "$ROOT/profiles/main-space.nix" \
+  || fail "sway kiosk service must identify the desktop for portal backend selection"
 grep -q 'CEMU_DEFAULT_SETTINGS' "$ROOT/launchers/cemu-storage-adapter.sh" \
   || fail "cemu-storage-adapter.sh must own fresh-state settings seeding"
 grep -q 'normalize_audio_settings' "$ROOT/launchers/cemu-storage-adapter.sh" \

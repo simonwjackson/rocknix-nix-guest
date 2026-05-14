@@ -59,6 +59,37 @@ CEMU_DEFAULT_SETTINGS="${CEMU_OUT}/share/Cemu/config/SM8550/settings.xml"
 : "${XDG_CACHE_HOME:?missing XDG_CACHE_HOME; launch from guest session or export it explicitly}"
 : "${SDL_AUDIODRIVER:?missing SDL_AUDIODRIVER; launch from guest session or export it explicitly}"
 
+bootstrap_session_portals() {
+  # Cemu/wxGTK asks the session portal for settings/file-chooser support during
+  # UI startup. If the portal is dbus-activated before it knows the Sway
+  # Wayland environment, it falls back to a GTK backend that times out for ~25s.
+  export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-sway}"
+  export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
+  if [ -z "${SWAYSOCK:-}" ]; then
+    SWAYSOCK=$(ls "${XDG_RUNTIME_DIR}"/sway-ipc.0.*.sock 2>/dev/null | head -1 || true)
+    export SWAYSOCK
+  fi
+
+  if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    dbus-update-activation-environment --systemd \
+      XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP \
+      >/dev/null 2>&1 || true
+  fi
+
+  if command -v systemctl >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
+    timeout 3s systemctl --user reset-failed \
+      xdg-desktop-portal.service xdg-desktop-portal-gtk.service xdg-document-portal.service \
+      >/dev/null 2>&1 || true
+    timeout 3s systemctl --user start \
+      xdg-desktop-portal-gtk.service xdg-desktop-portal.service \
+      >/dev/null 2>&1 || true
+  fi
+}
+
+if [ "${CEMU_BOOTSTRAP_PORTALS:-1}" = "1" ]; then
+  bootstrap_session_portals
+fi
+
 # ROCKNIX-era /storage config/save/key compatibility is a named guest adapter,
 # not package-owned runtime logic. It is idempotent and only seeds fresh state.
 LAUNCHER_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"

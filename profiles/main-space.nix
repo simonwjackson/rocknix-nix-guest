@@ -46,6 +46,28 @@ let
       sleep 5
     done
   '';
+
+  portalBootstrap = pkgs.writeShellScript "rocknix-portal-bootstrap" ''
+    set -u
+    export XDG_RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/0}"
+    export DBUS_SESSION_BUS_ADDRESS="''${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/0/bus}"
+    export XDG_CURRENT_DESKTOP="''${XDG_CURRENT_DESKTOP:-sway}"
+    if [ -z "''${SWAYSOCK:-}" ]; then
+      SWAYSOCK=$(${pkgs.coreutils}/bin/ls "$XDG_RUNTIME_DIR"/sway-ipc.0.*.sock 2>/dev/null | ${pkgs.coreutils}/bin/head -1 || true)
+      export SWAYSOCK
+    fi
+
+    ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd \
+      XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP \
+      >/dev/null 2>&1 || true
+
+    ${pkgs.coreutils}/bin/timeout 3s ${pkgs.systemd}/bin/systemctl --user reset-failed \
+      xdg-desktop-portal.service xdg-desktop-portal-gtk.service xdg-document-portal.service \
+      >/dev/null 2>&1 || true
+    ${pkgs.coreutils}/bin/timeout 3s ${pkgs.systemd}/bin/systemctl --user start \
+      xdg-desktop-portal-gtk.service xdg-desktop-portal.service \
+      >/dev/null 2>&1 || true
+  '';
 in
 
 {
@@ -199,6 +221,7 @@ in
       # display: No such file or directory". Verified live on Thor
       # 2026-05-11 after cold boot.
       DBUS_SESSION_BUS_ADDRESS = "unix:path=/run/user/0/bus";
+      XDG_CURRENT_DESKTOP = "sway";
       SDL_AUDIODRIVER = "pulseaudio";
       HOME = "/storage";
       XDG_CONFIG_HOME = "/storage/.config";
@@ -238,6 +261,11 @@ in
     default_border none
 
     ${sm8550.display.swayDeviceConfig}
+
+    # Prime the root user D-Bus activation environment once Sway has created
+    # WAYLAND_DISPLAY/SWAYSOCK. Without this, GTK/wx apps can block for ~25s
+    # while xdg-desktop-portal tries to start a backend with no display.
+    exec_always ${portalBootstrap}
 
     # ---- Interactive bindings (combined main-space, 2026-05-11) ----
 
