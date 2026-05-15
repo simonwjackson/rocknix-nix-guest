@@ -79,13 +79,19 @@ The rootfs tarball is imported by ROCKNIX host tooling under the configured Laye
 The ROCKNIX host first-boot path consumes a pinned, immutable rootfs seed tarball rather than the guest source tree. `.github/workflows/build-rootfs-seed.yml` automates that artifact boundary:
 
 - `workflow_dispatch` builds `.#rootfs-thor` or `.#rootfs-odin2portal` and always uploads a short-lived workflow artifact for inspection.
-- When run from a `rootfs-seed-*` tag, or when `publish_release=true` is selected manually, it publishes GitHub Release assets:
-  - `rocknix-guest-rootfs-<device>-<short-sha>.tar.zst`
-  - matching `.sha256`
-  - matching `.manifest.json`
-- The release notes print the exact `PKG_NIX_GUEST_ROOTFS_SEED_REV`, `PKG_NIX_GUEST_ROOTFS_SEED_URL`, and `PKG_NIX_GUEST_ROOTFS_SEED_SHA256` values for the ROCKNIX host `rocknix-guest-substrate/package.mk` pin.
+- When run from a `rootfs-seed-*` tag, or when `publish_release=true` is selected manually, it publishes GitHub Release assets. Oversized seeds are split into `.part-*` assets so each release upload stays below GitHub's single-asset limit.
+- The release notes print the exact `PKG_NIX_GUEST_ROOTFS_SEED_REV`, `PKG_NIX_GUEST_ROOTFS_SEED_URLS`, and `PKG_NIX_GUEST_ROOTFS_SEED_SHA256` values for the ROCKNIX host `rocknix-guest-substrate/package.mk` pin.
 
-Prefer release assets over workflow artifacts for host consumption: workflow artifacts expire and are API-oriented, while release URLs are stable enough for the host package fetch/verify step.
+ROCKNIX host images do **not** embed this multi-GB seed in `/flash/SYSTEM`. The host ships only a manifest and expects the matching seed to be staged offline under `/storage/.guest/seed/`:
+
+```sh
+mkdir -p /storage/.guest/seed
+cp rocknix-guest-rootfs-<device>-<short-sha>.tar.zst /storage/.guest/seed/
+```
+
+SM8550 update tarballs may carry the seed under `target/seed/` and hoist it to `/storage/.guest/seed/` before writing the new `SYSTEM`. Full-image installs require copying the matching seed to `/storage/.guest/seed/` after flashing, before a fresh `/storage` can boot the guest.
+
+Prefer release assets over workflow artifacts for host consumption: workflow artifacts expire and are API-oriented, while release URLs are stable enough for the host package fetch/verify step. Do not stage an Odin2Portal seed on Thor/Bandai or a Thor seed on Odin2Portal/sobo; the host manifest verifies the device compatible string before extraction.
 
 ## Local Korri development
 

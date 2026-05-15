@@ -5,30 +5,60 @@ readable from a card reader on another machine without booting the device.
 
 ## What this image is
 
-Default boot reaches `rocknix-graphical.target`, which starts the NixOS guest
-(`rocknix-guest-v2.service`) as the main product space. The guest owns display,
+Default boot reaches `rocknix-main-space.target`, which starts
+`rocknix-guest.service` as the NixOS main-space guest. The guest owns display,
 audio, input, networking policy, Steam/Cemu launchers, and hardware-button
 behavior.
 
-ROCKNIX remains the recovery/update substrate. Recovery is explicit; the host no
-longer automatically restarts the legacy UI if the guest crashes.
+ROCKNIX remains the recovery/update/container substrate. Recovery is explicit;
+the host no longer automatically restarts the legacy UI if the guest crashes.
 
 Identify the current boot mode:
 
 ```text
-ssh root@thor 'systemctl get-default; systemctl is-active rocknix-guest-v2.service'
+ssh root@<device> 'systemctl get-default; systemctl is-active rocknix-guest.service'
 ```
 
-- `rocknix-graphical.target` + active guest → Nix main-space.
-- `rocknix.target` or inactive guest after using a recovery toggle → ROCKNIX
+- `rocknix-main-space.target` + active guest → Nix main-space.
+- `multi-user.target` or inactive guest after using a recovery toggle → host
   recovery.
+
+## Offline guest rootfs seed
+
+Fresh `/storage` needs a prebuilt guest rootfs seed before the NixOS guest can
+start. The seed is not embedded in `/flash/SYSTEM`; it is too large for the
+2GB system partition.
+
+The host image ships a tiny manifest at:
+
+```text
+/usr/lib/rocknix-guest-substrate/guest-rootfs-seed.manifest
+```
+
+Copy the matching seed tarball to:
+
+```text
+/storage/.guest/seed/<manifest seed_archive>.tar.zst
+```
+
+`rocknix-guest-root-ensure` verifies the staged seed SHA256, checks the device
+compatible string, and extracts it into `/storage/machines/rocknix-guest` only
+when the guest root is missing or empty.
+
+Device seeds are not interchangeable:
+
+- Odin2Portal / sobo → compatible `ayn,odin2portal`.
+- Thor / bandai → compatible `ayn,thor`.
+
+A missing, corrupt, or wrong-device seed fails closed: host recovery remains
+available, but `rocknix-guest.service` will not start.
 
 ## Symptoms of a guest failure
 
 - Black screen for more than 30 seconds after boot.
-- Lid open / power button does nothing visible.
 - Display shows the boot splash and never advances.
-- Host SSH works, but `rocknix-guest-v2.service` repeatedly fails.
+- Host SSH works, but `rocknix-guest.service` or
+  `rocknix-guest-root-ensure.service` fails.
 
 If host SSH still works, use the SSH recovery path first. If SSH is unavailable,
 use the card-reader flag path.
@@ -36,12 +66,12 @@ use the card-reader flag path.
 ## Recovery with SSH
 
 ```text
-ssh root@thor
+ssh root@<device>
 touch /flash/rocknix.no-nspawn
 reboot
 ```
 
-The next boot routes to ROCKNIX recovery instead of Nix main-space.
+The next boot routes to host recovery instead of Nix main-space.
 
 ## Recovery with card reader
 
@@ -54,7 +84,7 @@ The next boot routes to ROCKNIX recovery instead of Nix main-space.
    ```
 
 4. Eject/reinstall the card or storage device.
-5. Power on. Boot routes to ROCKNIX recovery.
+5. Power on. Boot routes to host recovery.
 
 The flag file is sticky and persists across reboots until removed.
 
@@ -66,15 +96,15 @@ If the bootloader exposes a way to add kernel arguments, boot once with:
 rocknix.safe=1
 ```
 
-That routes this boot to ROCKNIX recovery. The override clears on the next
-normal reboot.
+That routes this boot to host recovery. The override clears on the next normal
+reboot.
 
 ## Confirming recovery mode
 
 ```text
-systemctl get-default                    # rocknix.target
-systemctl is-active rocknix-guest-v2     # inactive or not started
-systemctl status rocknix-recovery-toggle # shows which recovery trigger won
+systemctl get-default                         # multi-user.target
+systemctl is-active rocknix-guest.service     # inactive or not started
+systemctl status rocknix-recovery-toggle      # shows which recovery trigger won
 ```
 
 ## Exiting recovery mode
@@ -87,24 +117,45 @@ reboot
 If you used `rocknix.safe=1`, exiting is automatic: reboot without that cmdline
 argument.
 
+## Explicit clean reseed
+
+Normal updates do not overwrite an existing valid guest root. To force a clean
+reseed from a staged seed, stop the guest and create the explicit reseed flag:
+
+```text
+systemctl stop rocknix-guest.service
+touch /flash/rocknix.reseed-guest
+reboot
+```
+
+On success, the old root is retained as
+`/storage/machines/rocknix-guest.previous` and `/flash/rocknix.reseed-guest` is
+cleared.
+
 ## Guest update/promotion logs
 
-Image updates install a packaged guest source under `/usr/lib/nix-integration/guest`.
-`rocknix-guest-promote.service` applies that source to the persistent guest
-rootfs at boot when revisions differ.
+Image updates install packaged guest source under
+`/usr/lib/rocknix-guest-substrate/guest`. `rocknix-guest-promote.service`
+applies that source to the persistent guest rootfs at boot when revisions
+differ.
 
 Useful checks:
 
 ```text
-cat /usr/lib/nix-integration/guest-revision
+cat /usr/lib/rocknix-guest-substrate/guest-revision
+cat /usr/lib/rocknix-guest-substrate/guest-rootfs-seed.manifest
+ls -lh /storage/.guest/seed/
 cat /storage/machines/rocknix-guest/etc/rocknix-guest-revision
-cat /storage/machines/rocknix-guest/etc/rocknix-guest-system-path
+cat /storage/machines/rocknix-guest/etc/rocknix-guest-root-seed-complete
+journalctl -b -u rocknix-guest-root-ensure.service --no-pager
 journalctl -b -u rocknix-guest-promote.service --no-pager
-journalctl -b -u rocknix-guest-v2.service --no-pager
+journalctl -b -u rocknix-guest.service --no-pager
 ```
 
 ## Re-flashing
 
 If recovery does not get you back to a working device, use the standard ROCKNIX
-reflash/update flow. `/storage` holds ROMs, saves, configs, and the persistent
-guest rootfs; a normal image update does not intentionally wipe it.
+reflash/update flow. `/storage` holds ROMs, saves, configs, the staged seed, and
+the persistent guest rootfs; a normal image update does not intentionally wipe
+it. A hard factory reset reformats or deletes `/storage`, so the seed must be
+copied again afterward.
