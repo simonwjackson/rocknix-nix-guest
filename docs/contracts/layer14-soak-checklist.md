@@ -8,35 +8,35 @@ Read this checklist alongside:
 
 - `/var/log/rocknix-guest-soak.log`
 - `/var/log/rocknix-guest-soak-summary.log`
-- `journalctl -b -u rocknix-guest-v2.service`
+- `journalctl -b -u rocknix-guest.service`
 - `journalctl -b -u rocknix-guest-promote.service`
 
 ## Pre-soak setup
 
 - [ ] Device booted from the latest SM8550 image.
-- [ ] Host default target is `rocknix-graphical.target`.
+- [ ] Host default target is `rocknix-main-space.target`.
 - [ ] Host SSH on `root@thor:22` is responsive.
-- [ ] `/storage/machines/rocknix-guest/` exists.
-- [ ] `/storage/.guest/` exists and is writable.
-- [ ] `/usr/lib/nix-integration/guest-revision` exists.
+- [ ] `/storage/nix-on-rock/rootfs/current/` exists.
+- [ ] `/storage/nix-on-rock/staging/guest-exchange/` exists and is writable (guest-visible as `/storage/.guest` during the compatibility window).
+- [ ] `/usr/lib/rocknix-guest-substrate/guest-revision` exists.
 - [ ] Packaged guest source static checks pass:
 
   ```text
-  /usr/lib/nix-integration/guest/scripts/static-checks.sh
+  /usr/lib/rocknix-guest-substrate/guest/scripts/static-checks.sh
   ```
 
 - [ ] Guest promotion marker is current or promotion has completed:
 
   ```text
-  cat /usr/lib/nix-integration/guest-revision
-  cat /storage/machines/rocknix-guest/etc/rocknix-guest-revision
-  cat /storage/machines/rocknix-guest/etc/rocknix-guest-system-path
+  cat /usr/lib/rocknix-guest-substrate/guest-revision
+  cat /storage/nix-on-rock/rootfs/current/etc/rocknix-guest-revision
+  cat /storage/nix-on-rock/rootfs/current/etc/rocknix-guest-system-path
   ```
 
 ## Start the run
 
 ```text
-systemctl start rocknix-guest-v2.service
+systemctl start rocknix-guest.service
 systemctl start rocknix-guest-promote.service
 sleep 10
 rocknix-guest-soak --hours 24 \
@@ -94,9 +94,9 @@ rocknix-guest-soak --hours 4 --interval-seconds 600
 - [ ] Record the image commit, guest revision, and system path:
 
   ```text
-  cat /usr/lib/nix-integration/guest-revision
-  cat /storage/machines/rocknix-guest/etc/rocknix-guest-revision
-  cat /storage/machines/rocknix-guest/etc/rocknix-guest-system-path
+  cat /usr/lib/rocknix-guest-substrate/guest-revision
+  cat /storage/nix-on-rock/rootfs/current/etc/rocknix-guest-revision
+  cat /storage/nix-on-rock/rootfs/current/etc/rocknix-guest-system-path
   ```
 
 - [ ] Note `PASS` or `FAIL` in the operator journal.

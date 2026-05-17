@@ -12,24 +12,28 @@ guest-specific documentation.
 
 In:
 
-- Host installs `rocknix-guest-v2.service`, a narrow `systemd-nspawn` unit for
-  `/storage/machines/rocknix-guest`.
-- Host default target is `rocknix-graphical.target` on SM8550. That target pulls
+- Host installs `rocknix-guest.service`, a narrow `systemd-nspawn` unit for
+  `/storage/nix-on-rock/rootfs/current`.
+- Host default target is `rocknix-main-space.target` on SM8550. That target pulls
   in the guest and the packaged guest promotion service.
 - Host binds only the resources the guest needs: DRM, sound, input, tty, rfkill,
-  selected sysfs controls, ROM/config subtrees, and the scrubbed guest udev DB.
+  selected sysfs controls, the scrubbed guest udev DB, and the single
+  nix-on-rock exchange directory exposed inside the guest as `/storage/.guest`
+  during the compatibility window.
 - Host does **not** broad-bind `/usr`, `/lib`, `/etc/profile`, `/etc/resolv.conf`,
   or all of `/storage`.
 - `rocknix-guest-prep` repairs the persistent guest rootfs before launch:
-  `/init` links, guest `/run/current-system` expectations, `/storage/.guest`,
-  and the guest-owned resolv.conf marker.
+  `/init` links, guest `/run/current-system` expectations, the guest-visible
+  `/storage/.guest` compatibility mountpoint, and the guest-owned resolv.conf
+  marker.
 - `rocknix-guest-udev-stage` stages a scrubbed `/run/udev` copy so hidden
   InputPlumber devices do not poison guest libseat/wlroots startup.
 - `rocknix-guest-promote.service` applies the packaged guest revision to the
   persistent guest rootfs after the old guest boots: it stages
-  `/usr/lib/nix-integration/guest` under `/storage/.guest`, builds
+  `/usr/lib/rocknix-guest-substrate/guest` under
+  `/storage/nix-on-rock/staging/guest-exchange`, builds
   `rocknix-guest-main-space-by-compatible` inside the guest namespace with
-  `--impure`, updates the selected and legacy NixOS system profiles, records
+  `--impure`, updates the selected guest system profile, records
   `/etc/rocknix-guest-revision`, and restarts the guest once so PID 1 boots
   the promoted generation.
 - The `rocknix-guest-main-space-by-compatible` flake attribute is the
@@ -51,7 +55,7 @@ In:
 
 Out:
 
-- Automatic legacy host UI reclaim after guest failure. `rocknix-guest-v2.service`
+- Automatic legacy host UI reclaim after guest failure. `rocknix-guest.service`
   may restart the guest via `Restart=on-failure`; if it remains broken, recovery
   is explicit via `/flash/rocknix.no-nspawn` or `rocknix.safe=1`.
 - Backwards-compatible host Nix CLIs, host nix-daemon, host PATH hooks, Layer 13
@@ -61,25 +65,25 @@ Out:
 
 ## Host unit shape
 
-`rocknix-guest-v2.service`:
+`rocknix-guest.service`:
 
 - `ExecStartPre=/usr/bin/rocknix-guest-prep`
 - `ExecStartPre=/usr/bin/rocknix-guest-udev-stage`
-- `ExecStart=/usr/bin/systemd-nspawn --machine=rocknix-guest --directory=/storage/machines/rocknix-guest --boot --register=no --keep-unit ...`
+- `ExecStart=/usr/bin/systemd-nspawn --machine=rocknix-guest --directory=/storage/nix-on-rock/rootfs/current --boot --register=no --keep-unit ...`
 - `Restart=on-failure`
 - no `ExecStopPost=` fallback/reclaim hook
-- `WantedBy=rocknix-graphical.target`
+- `WantedBy=rocknix-main-space.target`
 
 `rocknix-guest-promote.service`:
 
-- `After=rocknix-guest-v2.service`
-- `Wants=rocknix-guest-v2.service`
+- `After=rocknix-guest.service`
+- `Wants=rocknix-guest.service`
 - `ExecStart=/usr/bin/rocknix-guest-promote`
 - `TimeoutStartSec=60min`
-- `WantedBy=rocknix-graphical.target`
+- `WantedBy=rocknix-main-space.target`
 
 The promotion helper intentionally enters the already-running guest namespace
-rather than trying to mutate host `/usr` or `/storage/machines/rocknix-guest`
+rather than trying to mutate host `/usr` or `/storage/nix-on-rock/rootfs/current`
 from the host. It uses explicit `/run/current-system/sw/bin/...` paths inside
 the guest and `sh -c` (not a login shell) to avoid host/guest logout hooks.
 
@@ -90,34 +94,34 @@ power-on -> ROCKNIX host -> rocknix-recovery-toggle.service
    |
    |- /flash/rocknix.no-nspawn exists -> rocknix.target  (explicit recovery)
    |- rocknix.safe=1 on cmdline       -> rocknix.target  (one-boot recovery)
-   |- otherwise                       -> rocknix-graphical.target
+   |- otherwise                       -> rocknix-main-space.target
                                             |
-                                            |- rocknix-guest-v2.service
+                                            |- rocknix-guest.service
                                             |- rocknix-guest-promote.service
 ```
 
 ## Guest promotion lifecycle
 
-ROCKNIX image updates replace `/usr/lib/nix-integration/guest`, but the running
-NixOS rootfs lives persistently under `/storage/machines/rocknix-guest`. The
+ROCKNIX image updates replace `/usr/lib/rocknix-guest-substrate/guest`, but the running
+NixOS rootfs lives persistently under `/storage/nix-on-rock/rootfs/current`. The
 host therefore carries two revision markers:
 
-- Packaged revision: `/usr/lib/nix-integration/guest-revision`
-- Applied revision: `/storage/machines/rocknix-guest/etc/rocknix-guest-revision`
+- Packaged revision: `/usr/lib/rocknix-guest-substrate/guest-revision`
+- Applied revision: `/storage/nix-on-rock/rootfs/current/etc/rocknix-guest-revision`
 
 If the markers match, promotion exits without changing the guest. If they differ:
 
-1. Copy the packaged guest source to `/storage/.guest/rocknix-nix-guest-packaged`.
+1. Copy the packaged guest source to `/storage/nix-on-rock/staging/guest-exchange/rocknix-nix-guest-packaged`.
 2. Run guest repo static checks from the staged source.
 3. Enter the running guest namespace via the `systemd-nspawn` payload PID.
 4. Wait for guest `NetworkManager.service` so Nix can fetch/substitute.
-5. Build `. #nixosConfigurations.rocknix-guest-main-space.config.system.build.toplevel`.
-6. Set `/nix/var/nix/profiles/system` to the built toplevel.
+5. Build `.#nixosConfigurations.rocknix-guest-main-space-by-compatible.config.system.build.toplevel`.
+6. Set `/nix/var/nix/profiles/per-user/root/rocknix-guest-system` to the built toplevel.
 7. Write applied revision and system-path markers under guest `/etc`.
-8. Restart `rocknix-guest-v2.service` once so the new guest generation boots.
+8. Restart `rocknix-guest.service` once so the new guest generation boots.
 
 This makes ROCKNIX image updates carry guest repo fixes into the persistent guest
-without manual `nixos-rebuild` steps on Thor.
+without manual `nixos-rebuild` steps on-device.
 
 ## Recovery contract
 

@@ -29,7 +29,7 @@ Touch routing (DSI-2 default + per-device post-patch rules), output
 config (DSI-2 transform 90, DSI-1 disable), and the `WLR_*` env are
 copied verbatim. Both profiles produce the same kiosk *service unit
 name* (`rocknix-sway-kiosk.service`) so the host-side
-`rocknix-guest-v2.service` graph is identical regardless of which
+`rocknix-guest.service` graph is identical regardless of which
 profile is booted.
 
 ## Selection mechanism
@@ -55,14 +55,14 @@ Persistent profile selection is **deferred** to the four-image plan
 
 Prerequisites:
 
-- Thor is running Layer 14 (`rocknix-guest-v2.service` is `active`,
+- Thor is running Layer 14 (`rocknix-guest.service` is `active`,
   `rocknix-sway-kiosk.service` is `active`).
 - Network is up (`ssh root@thor` reachable via tailscale or LAN).
-- The guest has flake source staged at `/storage/machines/rocknix-guest/etc/nixos/`. On a freshly flashed image this directory is the rootfs's `/etc/nixos/` from the closure builder, which is read-only via squashfs. To make it writable, **once per device**, copy the repo's `guest/` tree into that path so it can be edited and rebuilt:
+- The guest has flake source staged at `/storage/nix-on-rock/rootfs/current/etc/nixos/`. On a freshly flashed image this directory is the rootfs's `/etc/nixos/` from the closure builder, which is read-only via squashfs. To make it writable, **once per device**, copy the repo's `guest/` tree into that path so it can be edited and rebuilt:
   ```bash
   # one-time setup, from a workstation with the repo cloned
   rsync -a projects/ROCKNIX/packages/tools/nix-integration/guest/ \
-        root@thor:/storage/machines/rocknix-guest/etc/nixos/
+        root@thor:/storage/nix-on-rock/rootfs/current/etc/nixos/
   ```
 
 Switch to dev-env (run from a workstation):
@@ -176,7 +176,7 @@ from `base.nix` lets `nix run` substitute from cache.nixos.org.
   `input type:touch map_to_output DSI-2` fallback still pins all touch
   to DSI-2.
 - Live profile swap requires the flake source staged in
-  `/storage/machines/rocknix-guest/etc/nixos/` (one-time setup; see
+  `/storage/nix-on-rock/rootfs/current/etc/nixos/` (one-time setup; see
   Prerequisites above).
 
 ## Related artefacts

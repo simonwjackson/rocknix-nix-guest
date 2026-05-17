@@ -38,12 +38,12 @@ The host image ships a tiny manifest at:
 Copy the matching seed tarball to:
 
 ```text
-/storage/.guest/seed/<manifest seed_archive>.tar.zst
+/storage/nix-on-rock/images/seeds/<manifest seed_archive>.tar.zst
 ```
 
 `rocknix-guest-root-ensure` verifies the staged seed SHA256, checks the device
-compatible string, and extracts it into `/storage/machines/rocknix-guest` only
-when the guest root is missing or empty.
+compatible string, and extracts it into `/storage/nix-on-rock/rootfs/current`
+only when the guest root is missing or empty.
 
 Device seeds are not interchangeable:
 
@@ -129,7 +129,7 @@ reboot
 ```
 
 On success, the old root is retained as
-`/storage/machines/rocknix-guest.previous` and `/flash/rocknix.reseed-guest` is
+`/storage/nix-on-rock/rootfs/previous` and `/flash/rocknix.reseed-guest` is
 cleared.
 
 ## Guest update/promotion logs
@@ -144,13 +144,21 @@ Useful checks:
 ```text
 cat /usr/lib/rocknix-guest-substrate/guest-revision
 cat /usr/lib/rocknix-guest-substrate/guest-rootfs-seed.manifest
-ls -lh /storage/.guest/seed/
-cat /storage/machines/rocknix-guest/etc/rocknix-guest-revision
-cat /storage/machines/rocknix-guest/etc/rocknix-guest-root-seed-complete
+ls -lh /storage/nix-on-rock/images/seeds/
+cat /storage/nix-on-rock/rootfs/current/etc/rocknix-guest-revision
+cat /storage/nix-on-rock/rootfs/current/etc/rocknix-guest-root-seed-complete
 journalctl -b -u rocknix-guest-root-ensure.service --no-pager
 journalctl -b -u rocknix-guest-promote.service --no-pager
 journalctl -b -u rocknix-guest.service --no-pager
 ```
+
+## Legacy layout compatibility
+
+For the migration window, the host migrates valid legacy paths from
+`/storage/machines/rocknix-guest` and `/storage/.guest` into
+`/storage/nix-on-rock` before first boot. The guest may still see the
+host/guest exchange as `/storage/.guest`, but host-owned persistent state now
+lives under `/storage/nix-on-rock`.
 
 ## Re-flashing
 
