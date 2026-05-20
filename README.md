@@ -26,4 +26,4 @@ Use `nix-on-rocks` for all new work:
 | SM8550 host substrate changes | `nix-on-rocks/patches/rocknix/` |
 | Product docs, acceptance, contracts, ops | `nix-on-rocks/docs/` |
 
-This repository is retained only as a relocation pointer while old links, historical tags, and accepted seed references age out. Do not add new source, workflows, or product documentation here.
+This repository is archived and retained only as a relocation pointer for old links, historical tags, and accepted seed references. Do not add new source, workflows, issues, or product documentation here.
